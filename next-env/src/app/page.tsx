@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   useEffect,
   useRef,
@@ -249,9 +251,11 @@ function LetterContent({
 function FinalContent({
   copyOpacity,
   copyShift,
+  active,
 }: {
   copyOpacity: number;
   copyShift: number;
+  active: boolean;
 }) {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
@@ -267,6 +271,19 @@ function FinalContent({
       >
         From origin to shelf — on chain
       </p>
+      {/* Animation is gated on `active`: the classes (and the fade-in) only
+          apply once the user actually arrives on this beat, instead of firing
+          on mount. Re-arriving replays it. */}
+      <Button
+        className={cn(
+          "mt-25 h-auto p-2 text-4xl",
+          active
+            ? "animate-in fade-in-0 slide-in-from-bottom-2 delay-1000 duration-2000 fill-mode-both"
+            : "opacity-0",
+        )}
+      >
+        COMING SOON
+      </Button>
     </div>
   );
 }
@@ -282,16 +299,24 @@ function BeatBody({
   index,
   copyOpacity = 1,
   copyShift = 0,
+  active = true,
 }: {
   beat: Beat;
   index: number;
   copyOpacity?: number;
   copyShift?: number;
+  active?: boolean;
 }) {
   if (beat.kind === "hero")
     return <HeroContent copyOpacity={copyOpacity} copyShift={copyShift} />;
   if (beat.kind === "final")
-    return <FinalContent copyOpacity={copyOpacity} copyShift={copyShift} />;
+    return (
+      <FinalContent
+        copyOpacity={copyOpacity}
+        copyShift={copyShift}
+        active={active}
+      />
+    );
   return (
     <LetterContent
       beat={beat}
@@ -341,6 +366,7 @@ function BeatLayer({
         index={index}
         copyOpacity={copyOpacity}
         copyShift={(1 - copyOpacity) * 28}
+        active={isTop}
       />
     </div>
   );
