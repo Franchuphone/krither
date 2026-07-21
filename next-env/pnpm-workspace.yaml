@@ -1,6 +1,13 @@
 allowBuilds:
+  '@reown/appkit': true
   sharp: true
   unrs-resolver: true
 onlyBuiltDependencies:
+  - '@reown/appkit'
   - sharp
   - unrs-resolver
+overrides:
+  # cdp-sdk >=1.52 imports optional @x402/* payment packages that a web dapp
+  # never uses and that break the Turbopack build. Pin to the last version
+  # without them (matches the working voting-dapp reference).
+  '@coinbase/cdp-sdk': 1.51.2
