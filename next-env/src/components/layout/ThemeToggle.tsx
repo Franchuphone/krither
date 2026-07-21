@@ -16,7 +16,7 @@ const ThemeToggle = () => {
   if (!mounted) {
     return (
       <Button
-        variant="outline"
+        variant="ghost"
         size="icon-lg"
         aria-label="Toggle theme"
         disabled
@@ -28,7 +28,7 @@ const ThemeToggle = () => {
 
   return (
     <Button
-      variant="outline"
+      variant="ghost"
       size="icon-lg"
       aria-label="Toggle theme"
       onClick={() => setTheme(isDark ? "light" : "dark")}
