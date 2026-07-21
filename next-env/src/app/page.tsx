@@ -348,11 +348,11 @@ function BeatLayer({
 
 function ScrollHint() {
   return (
-    <div className="pointer-events-none fixed bottom-10 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-3 text-muted-foreground">
-      <span className="font-mono text-xs tracking-[0.3em] uppercase">
+    <div className="pointer-events-none fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-4 text-muted-foreground">
+      <span className="font-mono text-sm tracking-[0.35em] uppercase">
         Scroll
       </span>
-      <span className="h-12 w-px animate-pulse bg-linear-to-b from-primary to-transparent" />
+      <span className="h-14 w-1 animate-pulse rounded-full bg-linear-to-b from-primary to-transparent" />
     </div>
   );
 }
