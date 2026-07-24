@@ -27,13 +27,15 @@ contract KritherRegistry is
     bytes32 public constant CONSUMER_ROLE = keccak256("CONSUMER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
-    uint256 private _nextIdLot;
+    uint128 private _nextIdLot;
+    uint128 private _nextProducerId;
     struct Lot {
         address producer;
         uint96 lifecycleChanges;
     }
     mapping(uint256 => Lot) public lots;
-    mapping(address => address) public currentProducer;
+    mapping(address => uint256) public producerIds;
+    mapping(uint256 => address) public producerById;
 
     event LotCreated(
         uint256 indexed idLot,
@@ -94,6 +96,19 @@ contract KritherRegistry is
         super._update(from, to, ids, values);
     }
 
+    function _grantRole(
+        bytes32 role,
+        address account
+    ) internal override returns (bool) {
+        bool granted = super._grantRole(role, account);
+        if (granted && role == PRODUCER_ROLE) {
+            uint256 id = ++_nextProducerId;
+            producerIds[account] = id;
+            producerById[id] = account;
+        }
+        return granted;
+    }
+
     // MODIFIERS
 
     modifier checkNonZero(uint256 number) {
@@ -125,8 +140,6 @@ contract KritherRegistry is
     function unpause() external onlyRole(PAUSER_ROLE) {
         _unpause();
     }
-
-    // INTERNAL
 
     // PRODUCT LIFECYCLE
 
@@ -176,14 +189,17 @@ contract KritherRegistry is
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
         checkAddressZero(newAddress)
-        returns (bool success)
+        whenNotPaused
     {
         require(oldAddress != newAddress, InputSimilar());
         require(hasRole(PRODUCER_ROLE, oldAddress), NotProducer());
-        grantRole(PRODUCER_ROLE, newAddress);
-        revokeRole(PRODUCER_ROLE, oldAddress);
-        currentProducer[oldAddress] = newAddress;
+
+        uint256 id = producerIds[oldAddress];
+
+        _grantRole(PRODUCER_ROLE, newAddress);
+        _revokeRole(PRODUCER_ROLE, oldAddress);
+        producerIds[newAddress] = id;
+        producerById[id] = newAddress;
         emit ProducerReassigned(oldAddress, newAddress, block.timestamp);
-        return true;
     }
 }
