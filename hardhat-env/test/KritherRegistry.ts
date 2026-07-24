@@ -83,14 +83,13 @@ async function deployThreeProducers() {
 	const fixture = await deployRegistry();
 	const PRODUCER_ROLE = await fixture.registry.read.PRODUCER_ROLE();
 
-	for (const p of [
-		fixture.producer1,
-		fixture.producer2,
-		fixture.producer3,
-	]) {
-		await fixture.registry.write.grantRole([PRODUCER_ROLE, p.account.address], {
-			account: fixture.admin.account,
-		});
+	for (const p of [fixture.producer1, fixture.producer2, fixture.producer3]) {
+		await fixture.registry.write.grantRole(
+			[PRODUCER_ROLE, p.account.address],
+			{
+				account: fixture.admin.account,
+			},
+		);
 	}
 
 	return fixture;
@@ -617,7 +616,7 @@ describe("KritherRegistry — producer reassignment", async function () {
 	it("re-attributes every lot of a producer in one call, leaving lots immutable", async function () {
 		const { registry, admin, producer1, producer2 } =
 			await networkHelpers.loadFixture(deployWithLot);
-		const ProducerReassigned = await registry.read.producerIds([
+		const producerReassigned = await registry.read.producerIds([
 			producer1.account.address,
 		]);
 
@@ -633,7 +632,7 @@ describe("KritherRegistry — producer reassignment", async function () {
 
 		assert.equal(
 			await registry.read.producerIds([producer2.account.address]),
-			ProducerReassigned,
+			producerReassigned,
 		);
 
 		// the original producer stored on each lot is never rewritten
@@ -705,9 +704,6 @@ describe("KritherRegistry — producer reassignment", async function () {
 		);
 	});
 
-	// The real requirement: starting ONLY from the lot, resolution must reach the
-	// producer's current wallet after any number of rotations, while the lot's
-	// "made by" address stays the original.
 	it("resolves lot #1 to the current producer after two rotations", async function () {
 		const { registry, admin, producer1, producer2, producer3 } =
 			await networkHelpers.loadFixture(deployWithLot);
