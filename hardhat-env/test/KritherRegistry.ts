@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { network } from "hardhat";
+import { zeroAddress } from "viem";
 
 const { viem, networkHelpers } = await network.create();
 
@@ -81,6 +82,30 @@ async function deployForPause() {
 	return fixture;
 }
 
+/**
+ * Surfboard resale: producer1 mints a unique lot (qty 1) then sells it,
+ * transferring lot #1 to `other` (a role-less buyer / owner).
+ */
+async function deploySoldUniqueLot() {
+	const fixture = await deployAccredited();
+
+	await fixture.registry.write.mintLot([1n, CID], {
+		account: fixture.producer1.account,
+	});
+	await fixture.registry.write.safeTransferFrom(
+		[
+			fixture.producer1.account.address,
+			fixture.other.account.address,
+			1n,
+			1n,
+			"0x",
+		],
+		{ account: fixture.producer1.account },
+	);
+
+	return fixture;
+}
+
 describe("KritherRegistry — deployment", async function () {
 	it("grants DEFAULT_ADMIN_ROLE to the address passed to the constructor", async function () {
 		const { registry, admin } =
@@ -120,6 +145,16 @@ describe("KritherRegistry — deployment", async function () {
 		assert.equal(
 			await registry.read.supportsInterface(["0xd9b67a26"]),
 			true,
+		);
+	});
+
+	it("reverts when deployed with the zero address as admin", async function () {
+		const { registry } = await networkHelpers.loadFixture(deployRegistry);
+
+		await viem.assertions.revertWithCustomError(
+			viem.deployContract("KritherRegistry", [zeroAddress]),
+			registry,
+			"InputAddressZero",
 		);
 	});
 });
@@ -538,6 +573,49 @@ describe("KritherRegistry — producer reassignment", async function () {
 			),
 			registry,
 			"InputSimilar",
+		);
+	});
+});
+
+describe("KritherRegistry — ownership transfer (resale)", async function () {
+	it("lets the new holder add a lifecycle step after a sale", async function () {
+		const { registry, other } =
+			await networkHelpers.loadFixture(deploySoldUniqueLot);
+
+		await viem.assertions.emit(
+			registry.write.addLifecycleChange([1n, NEW_CID], {
+				account: other.account,
+			}),
+			registry,
+			"LifecycleChanged",
+		);
+
+		const [, lifecycleChanges] = await registry.read.lots([1n]);
+
+		assert.equal(lifecycleChanges, 1n);
+	});
+
+	it("stops the former holder from adding steps once the unit is sold", async function () {
+		const { registry, producer1 } =
+			await networkHelpers.loadFixture(deploySoldUniqueLot);
+
+		await viem.assertions.revertWithCustomError(
+			registry.write.addLifecycleChange([1n, NEW_CID], {
+				account: producer1.account,
+			}),
+			registry,
+			"NotHolder",
+		);
+	});
+
+	it("keeps the original producer as maker after a sale", async function () {
+		const { registry, producer1 } =
+			await networkHelpers.loadFixture(deploySoldUniqueLot);
+
+		const [lotProducer] = await registry.read.lots([1n]);
+		assert.equal(
+			lotProducer.toLowerCase(),
+			producer1.account.address.toLowerCase(),
 		);
 	});
 });
