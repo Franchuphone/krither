@@ -33,6 +33,7 @@ contract KritherRegistry is
         uint96 lifecycleChanges;
     }
     mapping(uint256 => Lot) public lots;
+    mapping(address => address) public currentProducer;
 
     event LotCreated(
         uint256 indexed idLot,
@@ -50,7 +51,14 @@ contract KritherRegistry is
         uint256 changedAt
     );
 
+    event ProducerReassigned(
+        address indexed oldAddress,
+        address indexed newAddress,
+        uint256 changedAt
+    );
+
     constructor(address admin) ERC1155("") {
+        require(admin != address(0), InputAddressZero());
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
     }
 
@@ -58,8 +66,10 @@ contract KritherRegistry is
 
     error InputNumberNull();
     error InputStringEmpty();
-    error InputIdlotOwnershipInvalid();
+    error InputAddressZero();
+    error InputSimilar();
     error NotHolder();
+    error NotProducer();
 
     // OVERRIDE FUNCTIONS
 
@@ -96,22 +106,29 @@ contract KritherRegistry is
         _;
     }
 
-    modifier checkOwnership(address owner, uint256 idLot, uint256 quantity) {
-        require(
-            balanceOf(owner, idLot) == quantity,
-            InputIdlotOwnershipInvalid()
-        );
-        _;
-    }
-
     modifier onlyHolder(uint256 idLot) {
         require(balanceOf(msg.sender, idLot) != 0, NotHolder());
         _;
     }
 
+    modifier checkAddressZero(address addr) {
+        require(addr != address(0), InputAddressZero());
+        _;
+    }
+
+    // PAUSABLE MECHANISM
+
+    function pause() external onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(PAUSER_ROLE) {
+        _unpause();
+    }
+
     // INTERNAL
 
-    // LOGICAL
+    // PRODUCT LIFECYCLE
 
     function mintLot(
         uint256 quantity,
@@ -124,7 +141,7 @@ contract KritherRegistry is
         returns (uint256 idLot)
     {
         idLot = ++_nextIdLot;
-        lots[idLot] = Lot(msg.sender, 1);
+        lots[idLot] = Lot(msg.sender, 0);
         _setURI(idLot, cid);
         _mint(msg.sender, idLot, quantity, "");
         emit LotCreated(idLot, quantity, msg.sender, cid, block.timestamp);
@@ -132,22 +149,41 @@ contract KritherRegistry is
 
     function addLifecycleChange(
         uint256 idLot,
-        uint256 quantity,
         string calldata cid
     )
         external
-        checkNonZero(quantity)
+        checkNonZero(idLot)
         checkEmptyString(cid)
-        checkOwnership(msg.sender, idLot, quantity)
+        onlyHolder(idLot)
+        whenNotPaused
     {
         lots[idLot].lifecycleChanges++;
-        _setURI(idLot, cid);
         emit LifecycleChanged(
             idLot,
-            quantity,
+            balanceOf(msg.sender, idLot),
             msg.sender,
             cid,
             block.timestamp
         );
+    }
+
+    // ADMIN INTERACTIONS
+
+    function reassignProducer(
+        address oldAddress,
+        address newAddress
+    )
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        checkAddressZero(newAddress)
+        returns (bool success)
+    {
+        require(oldAddress != newAddress, InputSimilar());
+        require(hasRole(PRODUCER_ROLE, oldAddress), NotProducer());
+        grantRole(PRODUCER_ROLE, newAddress);
+        revokeRole(PRODUCER_ROLE, oldAddress);
+        currentProducer[oldAddress] = newAddress;
+        emit ProducerReassigned(oldAddress, newAddress, block.timestamp);
+        return true;
     }
 }
