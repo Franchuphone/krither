@@ -2,12 +2,17 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { network } from "hardhat";
-import { zeroAddress } from "viem";
+import { keccak256, toHex, zeroAddress } from "viem";
 
 const { viem, networkHelpers } = await network.create();
 
 const CID = "bafkreialgaeseaweedharvest2026quiberon";
 const NEW_CID = "bafkreiupdatedlifecyclemetadatadryingstep";
+
+const ARWEAVE_POINTER = "kX3jLm9QvRt2wYzB4nH7pC1sD8fG5hJ0kL6mN9oP2qR";
+
+/** Matches any block timestamp in an event-args assertion */
+const anyTimestamp = (timestamp: bigint) => timestamp > 0n;
 
 /** Deploys registry with necessaries roles accounts  */
 async function deployRegistry() {
@@ -239,15 +244,15 @@ describe("KritherRegistry — producer id assignment (_grantRole)", async functi
 			await networkHelpers.loadFixture(deployThreeProducers);
 
 		assert.equal(
-			await registry.read.producerIds([producer1.account.address]),
+			await registry.read.producerByAddr([producer1.account.address]),
 			1n,
 		);
 		assert.equal(
-			await registry.read.producerIds([producer2.account.address]),
+			await registry.read.producerByAddr([producer2.account.address]),
 			2n,
 		);
 		assert.equal(
-			await registry.read.producerIds([producer3.account.address]),
+			await registry.read.producerByAddr([producer3.account.address]),
 			3n,
 		);
 	});
@@ -280,7 +285,7 @@ describe("KritherRegistry — producer id assignment (_grantRole)", async functi
 		});
 
 		assert.equal(
-			await registry.read.producerIds([pauser.account.address]),
+			await registry.read.producerByAddr([pauser.account.address]),
 			0n,
 		);
 	});
@@ -308,12 +313,44 @@ describe("KritherRegistry — producer id assignment (_grantRole)", async functi
 		);
 
 		assert.equal(
-			await registry.read.producerIds([producer1.account.address]),
+			await registry.read.producerByAddr([producer1.account.address]),
 			1n,
 		);
 		assert.equal(
-			await registry.read.producerIds([producer2.account.address]),
+			await registry.read.producerByAddr([producer2.account.address]),
 			2n,
+		);
+	});
+
+	it("gives a revoked producer its original id back when re-accredited", async function () {
+		const { registry, admin, producer1, producer4 } =
+			await networkHelpers.loadFixture(deployThreeProducers);
+
+		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
+
+		await registry.write.revokeRole(
+			[PRODUCER_ROLE, producer1.account.address],
+			{ account: admin.account },
+		);
+		await registry.write.grantRole(
+			[PRODUCER_ROLE, producer1.account.address],
+			{ account: admin.account },
+		);
+
+		assert.equal(
+			await registry.read.producerByAddr([producer1.account.address]),
+			1n,
+		);
+
+		// the re-accreditation consumed no id: the next producer still gets 4
+		await registry.write.grantRole(
+			[PRODUCER_ROLE, producer4.account.address],
+			{ account: admin.account },
+		);
+
+		assert.equal(
+			await registry.read.producerByAddr([producer4.account.address]),
+			4n,
 		);
 	});
 });
@@ -580,7 +617,7 @@ describe("KritherRegistry — producer reassignment", async function () {
 	it("lets the admin reassign a producer and emits ProducerReassigned", async function () {
 		const { registry, admin, producer1, producer2 } =
 			await networkHelpers.loadFixture(deployWithLot);
-		const producerReassignedId = await registry.read.producerIds([
+		const producerReassignedId = await registry.read.producerByAddr([
 			producer1.account.address,
 		]);
 
@@ -595,7 +632,7 @@ describe("KritherRegistry — producer reassignment", async function () {
 
 		assert.equal(
 			producerReassignedId,
-			await registry.read.producerIds([producer2.account.address]),
+			await registry.read.producerByAddr([producer2.account.address]),
 		);
 	});
 
@@ -616,7 +653,7 @@ describe("KritherRegistry — producer reassignment", async function () {
 	it("re-attributes every lot of a producer in one call, leaving lots immutable", async function () {
 		const { registry, admin, producer1, producer2 } =
 			await networkHelpers.loadFixture(deployWithLot);
-		const producerReassigned = await registry.read.producerIds([
+		const producerReassigned = await registry.read.producerByAddr([
 			producer1.account.address,
 		]);
 
@@ -631,7 +668,7 @@ describe("KritherRegistry — producer reassignment", async function () {
 		);
 
 		assert.equal(
-			await registry.read.producerIds([producer2.account.address]),
+			await registry.read.producerByAddr([producer2.account.address]),
 			producerReassigned,
 		);
 
@@ -719,7 +756,7 @@ describe("KritherRegistry — producer reassignment", async function () {
 
 		// lot #1 -> original producer -> stable id -> current wallet
 		const [maker] = await registry.read.lots([1n]);
-		const id = await registry.read.producerIds([maker]);
+		const id = await registry.read.producerByAddr([maker]);
 		const current = await registry.read.producerById([id]);
 
 		assert.equal(
@@ -750,7 +787,7 @@ describe("KritherRegistry — producer reassignment", async function () {
 		);
 
 		const [maker] = await registry.read.lots([1n]);
-		const id = await registry.read.producerIds([maker]);
+		const id = await registry.read.producerByAddr([maker]);
 		const current = await registry.read.producerById([id]);
 
 		assert.equal(
@@ -760,6 +797,224 @@ describe("KritherRegistry — producer reassignment", async function () {
 		assert.equal(
 			current.toLowerCase(),
 			producer4.account.address.toLowerCase(),
+		);
+	});
+
+	it("refuses reassigning onto an address that is already a producer", async function () {
+		const { registry, admin, producer1, producer2 } =
+			await networkHelpers.loadFixture(deployThreeProducers);
+
+		await viem.assertions.revertWithCustomError(
+			registry.write.reassignProducer(
+				[producer1.account.address, producer2.account.address],
+				{ account: admin.account },
+			),
+			registry,
+			"AlreadyProducer",
+		);
+	});
+
+	it("lets a producer rotate back onto a recovered wallet", async function () {
+		const { registry, admin, producer1, producer4 } =
+			await networkHelpers.loadFixture(deployThreeProducers);
+
+		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
+		const producer1Id = await registry.read.producerByAddr([
+			producer1.account.address,
+		]);
+
+		// key lost: rotate producer1 -> producer4
+		await registry.write.reassignProducer(
+			[producer1.account.address, producer4.account.address],
+			{ account: admin.account },
+		);
+
+		// wallet recovered: rotate back onto the original address
+		await viem.assertions.emit(
+			registry.write.reassignProducer(
+				[producer4.account.address, producer1.account.address],
+				{ account: admin.account },
+			),
+			registry,
+			"ProducerReassigned",
+		);
+
+		assert.equal(
+			await registry.read.producerByAddr([producer1.account.address]),
+			producer1Id,
+		);
+		assert.equal(
+			(await registry.read.producerById([producer1Id])).toLowerCase(),
+			producer1.account.address.toLowerCase(),
+		);
+		assert.equal(
+			await registry.read.hasRole([
+				PRODUCER_ROLE,
+				producer1.account.address,
+			]),
+			true,
+		);
+		assert.equal(
+			await registry.read.hasRole([
+				PRODUCER_ROLE,
+				producer4.account.address,
+			]),
+			false,
+		);
+	});
+
+	it("leaves every other producer's id untouched after a reassignment", async function () {
+		const { registry, admin, producer1, producer3, producer4 } =
+			await networkHelpers.loadFixture(deployThreeProducers);
+
+		const producer3Id = await registry.read.producerByAddr([
+			producer3.account.address,
+		]);
+
+		await registry.write.reassignProducer(
+			[producer1.account.address, producer4.account.address],
+			{ account: admin.account },
+		);
+
+		assert.equal(
+			await registry.read.producerByAddr([producer3.account.address]),
+			producer3Id,
+		);
+		assert.equal(
+			(await registry.read.producerById([producer3Id])).toLowerCase(),
+			producer3.account.address.toLowerCase(),
+		);
+		assert.equal(
+			await registry.read.producerByAddr([producer4.account.address]),
+			1n,
+		);
+	});
+});
+
+describe("KritherRegistry — storage locators (portability)", async function () {
+	it("lets the admin add a locator and emits LocatorAdded", async function () {
+		const { registry, admin } =
+			await networkHelpers.loadFixture(deployWithLot);
+
+		await viem.assertions.emitWithArgs(
+			registry.write.addLocator([1n, "arweave", ARWEAVE_POINTER], {
+				account: admin.account,
+			}),
+			registry,
+			"LocatorAdded",
+			[1n, keccak256(toHex("arweave")), "arweave", ARWEAVE_POINTER, anyTimestamp],
+		);
+	});
+
+	it("refuses a locator from a producer or any non-admin", async function () {
+		const { registry, producer1, other } =
+			await networkHelpers.loadFixture(deployWithLot);
+
+		await viem.assertions.revertWithCustomError(
+			registry.write.addLocator([1n, "arweave", ARWEAVE_POINTER], {
+				account: producer1.account,
+			}),
+			registry,
+			"AccessControlUnauthorizedAccount",
+		);
+
+		await viem.assertions.revertWithCustomError(
+			registry.write.addLocator([1n, "arweave", ARWEAVE_POINTER], {
+				account: other.account,
+			}),
+			registry,
+			"AccessControlUnauthorizedAccount",
+		);
+	});
+
+	it("rejects a locator on a lot that does not exist", async function () {
+		const { registry, admin } =
+			await networkHelpers.loadFixture(deployWithLot);
+
+		await viem.assertions.revertWithCustomError(
+			registry.write.addLocator([999n, "arweave", ARWEAVE_POINTER], {
+				account: admin.account,
+			}),
+			registry,
+			"LotNotFound",
+		);
+	});
+
+	it("rejects an empty service", async function () {
+		const { registry, admin } =
+			await networkHelpers.loadFixture(deployWithLot);
+
+		await viem.assertions.revertWithCustomError(
+			registry.write.addLocator([1n, "", ARWEAVE_POINTER], {
+				account: admin.account,
+			}),
+			registry,
+			"InputStringEmpty",
+		);
+	});
+
+	it("rejects an empty pointer", async function () {
+		const { registry, admin } =
+			await networkHelpers.loadFixture(deployWithLot);
+
+		await viem.assertions.revertWithCustomError(
+			registry.write.addLocator([1n, "arweave", ""], {
+				account: admin.account,
+			}),
+			registry,
+			"InputStringEmpty",
+		);
+	});
+
+	it("accumulates several services on the same lot", async function () {
+		const { registry, admin } =
+			await networkHelpers.loadFixture(deployWithLot);
+
+		await viem.assertions.emitWithArgs(
+			registry.write.addLocator([1n, "ipfs", NEW_CID], {
+				account: admin.account,
+			}),
+			registry,
+			"LocatorAdded",
+			[1n, keccak256(toHex("ipfs")), "ipfs", NEW_CID, anyTimestamp],
+		);
+
+		await viem.assertions.emitWithArgs(
+			registry.write.addLocator([1n, "arweave", ARWEAVE_POINTER], {
+				account: admin.account,
+			}),
+			registry,
+			"LocatorAdded",
+			[1n, keccak256(toHex("arweave")), "arweave", ARWEAVE_POINTER, anyTimestamp],
+		);
+	});
+
+	it("never alters the anchored CID of the lot", async function () {
+		const { registry, admin } =
+			await networkHelpers.loadFixture(deployWithLot);
+
+		const anchored = await registry.read.uri([1n]);
+
+		await registry.write.addLocator([1n, "arweave", ARWEAVE_POINTER], {
+			account: admin.account,
+		});
+
+		assert.equal(await registry.read.uri([1n]), anchored);
+		assert.equal(await registry.read.uri([1n]), CID);
+	});
+
+	it("freezes locator additions while paused", async function () {
+		const { registry, admin, pauser } =
+			await networkHelpers.loadFixture(deployForPause);
+
+		await registry.write.pause({ account: pauser.account });
+
+		await viem.assertions.revertWithCustomError(
+			registry.write.addLocator([1n, "arweave", ARWEAVE_POINTER], {
+				account: admin.account,
+			}),
+			registry,
+			"EnforcedPause",
 		);
 	});
 });

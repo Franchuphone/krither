@@ -34,7 +34,7 @@ contract KritherRegistry is
         uint96 lifecycleChanges;
     }
     mapping(uint256 => Lot) public lots;
-    mapping(address => uint256) public producerIds;
+    mapping(address => uint256) public producerByAddr;
     mapping(uint256 => address) public producerById;
 
     event LotCreated(
@@ -59,6 +59,14 @@ contract KritherRegistry is
         uint256 changedAt
     );
 
+    event LocatorAdded(
+        uint256 indexed idLot,
+        bytes32 indexed serviceKey,
+        string service,
+        string pointer,
+        uint256 addedAt
+    );
+
     constructor(address admin) ERC1155("") {
         require(admin != address(0), InputAddressZero());
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
@@ -72,6 +80,8 @@ contract KritherRegistry is
     error InputSimilar();
     error NotHolder();
     error NotProducer();
+    error LotNotFound();
+    error AlreadyProducer();
 
     // OVERRIDE FUNCTIONS
 
@@ -101,9 +111,9 @@ contract KritherRegistry is
         address account
     ) internal override returns (bool) {
         bool granted = super._grantRole(role, account);
-        if (granted && role == PRODUCER_ROLE) {
+        if (granted && role == PRODUCER_ROLE && producerByAddr[account] == 0) {
             uint256 id = ++_nextProducerId;
-            producerIds[account] = id;
+            producerByAddr[account] = id;
             producerById[id] = account;
         }
         return granted;
@@ -128,6 +138,11 @@ contract KritherRegistry is
 
     modifier checkAddressZero(address addr) {
         require(addr != address(0), InputAddressZero());
+        _;
+    }
+
+    modifier lotExists(uint256 idLot) {
+        require(lots[idLot].producer != address(0), LotNotFound());
         _;
     }
 
@@ -165,7 +180,6 @@ contract KritherRegistry is
         string calldata cid
     )
         external
-        checkNonZero(idLot)
         checkEmptyString(cid)
         onlyHolder(idLot)
         whenNotPaused
@@ -182,6 +196,27 @@ contract KritherRegistry is
 
     // ADMIN INTERACTIONS
 
+    function addLocator(
+        uint256 idLot,
+        string calldata service,
+        string calldata pointer
+    )
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        lotExists(idLot)
+        checkEmptyString(service)
+        checkEmptyString(pointer)
+        whenNotPaused
+    {
+        emit LocatorAdded(
+            idLot,
+            keccak256(bytes(service)),
+            service,
+            pointer,
+            block.timestamp
+        );
+    }
+
     function reassignProducer(
         address oldAddress,
         address newAddress
@@ -193,13 +228,15 @@ contract KritherRegistry is
     {
         require(oldAddress != newAddress, InputSimilar());
         require(hasRole(PRODUCER_ROLE, oldAddress), NotProducer());
+        require(!hasRole(PRODUCER_ROLE, newAddress), AlreadyProducer());
 
-        uint256 id = producerIds[oldAddress];
+        uint256 id = producerByAddr[oldAddress];
 
+        producerByAddr[newAddress] = id;
+        producerById[id] = newAddress;
         _grantRole(PRODUCER_ROLE, newAddress);
         _revokeRole(PRODUCER_ROLE, oldAddress);
-        producerIds[newAddress] = id;
-        producerById[id] = newAddress;
+
         emit ProducerReassigned(oldAddress, newAddress, block.timestamp);
     }
 }
