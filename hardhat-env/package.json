@@ -2,6 +2,7 @@
   "name": "hardhat-env",
   "version": "1.0.0",
   "type": "module",
+  "packageManager": "pnpm@11.14.0",
   "devDependencies": {
     "@nomicfoundation/hardhat-ignition": "^3.1.8",
     "@nomicfoundation/hardhat-toolbox-viem": "^5.0.7",

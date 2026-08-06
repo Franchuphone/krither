@@ -178,12 +178,7 @@ contract KritherRegistry is
     function addLifecycleChange(
         uint256 idLot,
         string calldata cid
-    )
-        external
-        checkEmptyString(cid)
-        onlyHolder(idLot)
-        whenNotPaused
-    {
+    ) external checkEmptyString(cid) onlyHolder(idLot) whenNotPaused {
         lots[idLot].lifecycleChanges++;
         emit LifecycleChanged(
             idLot,
