@@ -28,13 +28,15 @@ jobs:
                 working-directory: ./hardhat-env
         steps:
             - name: Checkout Repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
 
             - name: Install pnpm
-              uses: pnpm/action-setup@v4
+              uses: pnpm/action-setup@v6
+              with:
+                  package_json_file: hardhat-env/package.json
 
             - name: Use Node.js 22.x
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v7
               with:
                   node-version: 22.x
                   cache: pnpm
