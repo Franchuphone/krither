@@ -9,43 +9,48 @@ import {
     ERC1155Supply
 } from "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import {
-    ERC1155URIStorage
-} from "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155URIStorage.sol";
-import {
     AccessControlEnumerable
 } from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract KritherRegistry is
     ERC1155,
     ERC1155Pausable,
     ERC1155Supply,
-    ERC1155URIStorage,
     AccessControlEnumerable
 {
+    using Strings for uint256;
+
     bytes32 public constant PRODUCER_ROLE = keccak256("PRODUCER_ROLE");
     bytes32 public constant RESELLER_ROLE = keccak256("RESELLER_ROLE");
     bytes32 public constant CONSUMER_ROLE = keccak256("CONSUMER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
+    uint256 private constant LOT_SHIFT = 128;
+
     uint128 private _nextIdLot;
     uint128 private _nextProducerId;
     struct Lot {
         address producer;
-        uint96 lifecycleChanges;
+        uint96 itemCount;
+        string cid;
     }
+
     mapping(uint256 => Lot) public lots;
+    mapping(uint256 => uint256) public lifecycleChanges;
     mapping(address => uint256) public producerByAddr;
     mapping(uint256 => address) public producerById;
 
     event LotCreated(
         uint256 indexed idLot,
-        uint256 quantity,
         address indexed producer,
         string cid,
+        uint256[] quantities,
         uint256 createdAt
     );
 
     event LifecycleChanged(
+        uint256 indexed idItem,
         uint256 indexed idLot,
         uint256 quantity,
         address indexed owner,
@@ -81,6 +86,7 @@ contract KritherRegistry is
     error NotHolder();
     error NotProducer();
     error LotNotFound();
+    error ItemNotFound();
     error AlreadyProducer();
 
     // OVERRIDE FUNCTIONS
@@ -91,10 +97,17 @@ contract KritherRegistry is
         return super.supportsInterface(interfaceId);
     }
 
-    function uri(
-        uint256 tokenId
-    ) public view override(ERC1155, ERC1155URIStorage) returns (string memory) {
-        return super.uri(tokenId);
+    /// @notice Resolves an item to its JSON inside the lot's metadata directory.
+    /// @param idItem Packed item id, `(idLot << 128) | index`.
+    /// @return The lot directory CID suffixed with the item's index.
+    function uri(uint256 idItem) public view override returns (string memory) {
+        Lot storage lot = lots[idItem >> LOT_SHIFT];
+        require(lot.producer != address(0), LotNotFound());
+
+        uint256 index = uint256(uint128(idItem));
+        require(index < lot.itemCount, ItemNotFound());
+
+        return string.concat(lot.cid, "/", index.toString(), ".json");
     }
 
     function _update(
@@ -131,8 +144,8 @@ contract KritherRegistry is
         _;
     }
 
-    modifier onlyHolder(uint256 idLot) {
-        require(balanceOf(msg.sender, idLot) != 0, NotHolder());
+    modifier onlyHolder(uint256 idItem) {
+        require(balanceOf(msg.sender, idItem) != 0, NotHolder());
         _;
     }
 
@@ -144,6 +157,39 @@ contract KritherRegistry is
     modifier lotExists(uint256 idLot) {
         require(lots[idLot].producer != address(0), LotNotFound());
         _;
+    }
+
+    // ID PACKING
+
+    /// @notice Builds the token id of an item within a lot.
+    function itemId(
+        uint256 idLot,
+        uint256 index
+    ) public pure returns (uint256) {
+        return (idLot << LOT_SHIFT) | index;
+    }
+
+    /// @notice Extracts the lot an item belongs to.
+    function lotOf(uint256 idItem) public pure returns (uint256) {
+        return idItem >> LOT_SHIFT;
+    }
+
+    /// @notice Extracts the position of an item inside its lot.
+    function indexOf(uint256 idItem) public pure returns (uint256) {
+        return uint256(uint128(idItem));
+    }
+
+    /// @notice Lists every token id minted under a lot.
+    function itemsOf(
+        uint256 idLot
+    ) external view lotExists(idLot) returns (uint256[] memory ids) {
+        uint256 count = lots[idLot].itemCount;
+        uint256 base = idLot << LOT_SHIFT;
+
+        ids = new uint256[](count);
+        for (uint256 i = 0; i < count; ++i) {
+            ids[i] = base | i;
+        }
     }
 
     // PAUSABLE MECHANISM
@@ -158,31 +204,45 @@ contract KritherRegistry is
 
     // PRODUCT LIFECYCLE
 
+    /// @notice Mints a lot as a single batch, one token id per item.
+    /// @param quantities Units minted for each item, in directory order.
+    /// @param cid Metadata directory CID holding one `<index>.json` per item.
+    /// @return idLot Identifier of the created lot.
     function mintLot(
-        uint256 quantity,
+        uint256[] calldata quantities,
         string calldata cid
     )
         external
         onlyRole(PRODUCER_ROLE)
-        checkNonZero(quantity)
+        checkNonZero(quantities.length)
         checkEmptyString(cid)
         returns (uint256 idLot)
     {
         idLot = ++_nextIdLot;
-        lots[idLot] = Lot(msg.sender, 0);
-        _setURI(idLot, cid);
-        _mint(msg.sender, idLot, quantity, "");
-        emit LotCreated(idLot, quantity, msg.sender, cid, block.timestamp);
+        lots[idLot] = Lot(msg.sender, uint96(quantities.length), cid);
+
+        uint256[] memory ids = new uint256[](quantities.length);
+        for (uint256 i = 0; i < ids.length; ++i) {
+            require(quantities[i] > 0, InputNumberNull());
+            ids[i] = (idLot << LOT_SHIFT) | i;
+        }
+
+        _mintBatch(msg.sender, ids, quantities, "");
+        emit LotCreated(idLot, msg.sender, cid, quantities, block.timestamp);
     }
 
+    /// @notice Records a lifecycle step against one item of a lot.
+    /// @param idItem Packed item id the caller holds units of.
+    /// @param cid Metadata CID describing the step.
     function addLifecycleChange(
-        uint256 idLot,
+        uint256 idItem,
         string calldata cid
-    ) external checkEmptyString(cid) onlyHolder(idLot) whenNotPaused {
-        lots[idLot].lifecycleChanges++;
+    ) external checkEmptyString(cid) onlyHolder(idItem) whenNotPaused {
+        lifecycleChanges[idItem]++;
         emit LifecycleChanged(
-            idLot,
-            balanceOf(msg.sender, idLot),
+            idItem,
+            idItem >> LOT_SHIFT,
+            balanceOf(msg.sender, idItem),
             msg.sender,
             cid,
             block.timestamp

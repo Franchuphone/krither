@@ -11,6 +11,9 @@ const NEW_CID = "bafkreiupdatedlifecyclemetadatadryingstep";
 
 const ARWEAVE_POINTER = "kX3jLm9QvRt2wYzB4nH7pC1sD8fG5hJ0kL6mN9oP2qR";
 
+/** Packs a lot id and an item index into the token id the contract mints */
+const item = (idLot: bigint, index: bigint) => (idLot << 128n) | index;
+
 /** Matches any block timestamp in an event-args assertion */
 const anyTimestamp = (timestamp: bigint) => timestamp > 0n;
 
@@ -48,11 +51,22 @@ async function deployAccredited() {
 	return fixture;
 }
 
-/** Accredits producer1 and mints 1 lot */
+/** Accredits producer1 and mints 1 lot holding a single item */
 async function deployWithLot() {
 	const fixture = await deployAccredited();
 
-	await fixture.registry.write.mintLot([500n, CID], {
+	await fixture.registry.write.mintLot([[500n], CID], {
+		account: fixture.producer1.account,
+	});
+
+	return fixture;
+}
+
+/** Accredits producer1 and mints 1 lot holding three items in one batch */
+async function deployWithBatchLot() {
+	const fixture = await deployAccredited();
+
+	await fixture.registry.write.mintLot([[100n, 40n, 10n], CID], {
 		account: fixture.producer1.account,
 	});
 
@@ -73,10 +87,10 @@ async function deployTwoLots() {
 		{ account: fixture.admin.account },
 	);
 
-	await fixture.registry.write.mintLot([500n, CID], {
+	await fixture.registry.write.mintLot([[500n], CID], {
 		account: fixture.producer1.account,
 	});
-	await fixture.registry.write.mintLot([1n, NEW_CID], {
+	await fixture.registry.write.mintLot([[1n], NEW_CID], {
 		account: fixture.producer2.account,
 	});
 
@@ -114,20 +128,20 @@ async function deployForPause() {
 }
 
 /**
- * Surfboard resale: producer1 mints a unique lot (qty 1) then sells it,
- * transferring lot #1 to `other` (a role-less buyer / owner).
+ * Surfboard resale: producer1 mints a lot of one unique item then sells it,
+ * transferring that item to `other` (a role-less buyer / owner).
  */
 async function deploySoldUniqueLot() {
 	const fixture = await deployAccredited();
 
-	await fixture.registry.write.mintLot([1n, CID], {
+	await fixture.registry.write.mintLot([[1n], CID], {
 		account: fixture.producer1.account,
 	});
 	await fixture.registry.write.safeTransferFrom(
 		[
 			fixture.producer1.account.address,
 			fixture.other.account.address,
-			1n,
+			item(1n, 0n),
 			1n,
 			"0x",
 		],
@@ -355,13 +369,42 @@ describe("KritherRegistry — producer id assignment (_grantRole)", async functi
 	});
 });
 
+describe("KritherRegistry — id packing", async function () {
+	it("packs a lot id and an item index into one token id", async function () {
+		const { registry } = await networkHelpers.loadFixture(deployRegistry);
+
+		assert.equal(await registry.read.itemId([3n, 1n]), item(3n, 1n));
+		assert.equal(await registry.read.itemId([1n, 0n]), 1n << 128n);
+	});
+
+	it("recovers the lot and the index from a packed token id", async function () {
+		const { registry } = await networkHelpers.loadFixture(deployRegistry);
+
+		const packed = item(3n, 7n);
+
+		assert.equal(await registry.read.lotOf([packed]), 3n);
+		assert.equal(await registry.read.indexOf([packed]), 7n);
+	});
+
+	it("keeps items of different lots in disjoint id ranges", async function () {
+		const { registry } = await networkHelpers.loadFixture(deployRegistry);
+
+		// the highest index of lot 1 is still below the lowest id of lot 2
+		const lastOfLot1 = await registry.read.itemId([1n, (1n << 128n) - 1n]);
+		const firstOfLot2 = await registry.read.itemId([2n, 0n]);
+
+		assert.equal(lastOfLot1 < firstOfLot2, true);
+		assert.equal(await registry.read.lotOf([lastOfLot1]), 1n);
+	});
+});
+
 describe("KritherRegistry — lot creation", async function () {
 	it("refuses minting from an account without PRODUCER_ROLE", async function () {
 		const { registry, other } =
 			await networkHelpers.loadFixture(deployAccredited);
 
 		await viem.assertions.revertWithCustomError(
-			registry.write.mintLot([500n, CID], { account: other.account }),
+			registry.write.mintLot([[500n], CID], { account: other.account }),
 			registry,
 			"AccessControlUnauthorizedAccount",
 		);
@@ -371,16 +414,28 @@ describe("KritherRegistry — lot creation", async function () {
 		const { registry, producer1 } =
 			await networkHelpers.loadFixture(deployAccredited);
 
-		await viem.assertions.emit(
-			registry.write.mintLot([500n, CID], {
+		await viem.assertions.emitWithArgs(
+			registry.write.mintLot([[500n], CID], {
 				account: producer1.account,
 			}),
 			registry,
 			"LotCreated",
+			[
+				1n,
+				(producer: string) =>
+					producer.toLowerCase() ===
+					producer1.account.address.toLowerCase(),
+				CID,
+				[500n],
+				anyTimestamp,
+			],
 		);
 
 		assert.equal(
-			await registry.read.balanceOf([producer1.account.address, 1n]),
+			await registry.read.balanceOf([
+				producer1.account.address,
+				item(1n, 0n),
+			]),
 			500n,
 		);
 		const [lotProducer] = await registry.read.lots([1n]);
@@ -390,12 +445,25 @@ describe("KritherRegistry — lot creation", async function () {
 		);
 	});
 
-	it("rejects a mint with zero quantity", async function () {
+	it("rejects a mint with no items at all", async function () {
 		const { registry, producer1 } =
 			await networkHelpers.loadFixture(deployAccredited);
 
 		await viem.assertions.revertWithCustomError(
-			registry.write.mintLot([0n, CID], { account: producer1.account }),
+			registry.write.mintLot([[], CID], { account: producer1.account }),
+			registry,
+			"InputNumberNull",
+		);
+	});
+
+	it("rejects a mint where any item has zero quantity", async function () {
+		const { registry, producer1 } =
+			await networkHelpers.loadFixture(deployAccredited);
+
+		await viem.assertions.revertWithCustomError(
+			registry.write.mintLot([[100n, 0n, 10n], CID], {
+				account: producer1.account,
+			}),
 			registry,
 			"InputNumberNull",
 		);
@@ -406,9 +474,208 @@ describe("KritherRegistry — lot creation", async function () {
 			await networkHelpers.loadFixture(deployAccredited);
 
 		await viem.assertions.revertWithCustomError(
-			registry.write.mintLot([500n, ""], { account: producer1.account }),
+			registry.write.mintLot([[500n], ""], { account: producer1.account }),
 			registry,
 			"InputStringEmpty",
+		);
+	});
+
+	it("leaves the lot counter untouched when a mint reverts", async function () {
+		const { registry, producer1 } =
+			await networkHelpers.loadFixture(deployWithLot);
+
+		await assert.rejects(
+			registry.write.mintLot([[0n], CID], {
+				account: producer1.account,
+			}),
+		);
+
+		// the next successful mint still takes lot 2
+		await registry.write.mintLot([[1n], NEW_CID], {
+			account: producer1.account,
+		});
+		const [lot2Producer] = await registry.read.lots([2n]);
+
+		assert.equal(
+			lot2Producer.toLowerCase(),
+			producer1.account.address.toLowerCase(),
+		);
+	});
+});
+
+describe("KritherRegistry — batched items under one lot", async function () {
+	it("mints one token id per item in a single batch", async function () {
+		const { registry, producer1 } =
+			await networkHelpers.loadFixture(deployWithBatchLot);
+
+		assert.equal(
+			await registry.read.balanceOf([
+				producer1.account.address,
+				item(1n, 0n),
+			]),
+			100n,
+		);
+		assert.equal(
+			await registry.read.balanceOf([
+				producer1.account.address,
+				item(1n, 1n),
+			]),
+			40n,
+		);
+		assert.equal(
+			await registry.read.balanceOf([
+				producer1.account.address,
+				item(1n, 2n),
+			]),
+			10n,
+		);
+	});
+
+	it("emits a single TransferBatch for the whole lot", async function () {
+		const { registry, producer1 } =
+			await networkHelpers.loadFixture(deployAccredited);
+
+		await viem.assertions.emit(
+			registry.write.mintLot([[100n, 40n, 10n], CID], {
+				account: producer1.account,
+			}),
+			registry,
+			"TransferBatch",
+		);
+	});
+
+	it("records the item count on the lot", async function () {
+		const { registry } =
+			await networkHelpers.loadFixture(deployWithBatchLot);
+
+		const [, itemCount] = await registry.read.lots([1n]);
+
+		assert.equal(itemCount, 3n);
+	});
+
+	it("lists every token id of the lot via itemsOf", async function () {
+		const { registry } =
+			await networkHelpers.loadFixture(deployWithBatchLot);
+
+		assert.deepEqual(await registry.read.itemsOf([1n]), [
+			item(1n, 0n),
+			item(1n, 1n),
+			item(1n, 2n),
+		]);
+	});
+
+	it("rejects itemsOf on a lot that does not exist", async function () {
+		const { registry } =
+			await networkHelpers.loadFixture(deployWithBatchLot);
+
+		await viem.assertions.revertWithCustomError(
+			registry.read.itemsOf([999n]),
+			registry,
+			"LotNotFound",
+		);
+	});
+
+	it("tracks each item's supply independently", async function () {
+		const { registry } =
+			await networkHelpers.loadFixture(deployWithBatchLot);
+
+		assert.equal(await registry.read.totalSupply([item(1n, 0n)]), 100n);
+		assert.equal(await registry.read.totalSupply([item(1n, 1n)]), 40n);
+		assert.equal(await registry.read.totalSupply([item(1n, 2n)]), 10n);
+	});
+
+	it("transfers one item of the lot without touching the others", async function () {
+		const { registry, producer1, other } =
+			await networkHelpers.loadFixture(deployWithBatchLot);
+
+		await registry.write.safeTransferFrom(
+			[
+				producer1.account.address,
+				other.account.address,
+				item(1n, 1n),
+				15n,
+				"0x",
+			],
+			{ account: producer1.account },
+		);
+
+		assert.equal(
+			await registry.read.balanceOf([
+				other.account.address,
+				item(1n, 1n),
+			]),
+			15n,
+		);
+		assert.equal(
+			await registry.read.balanceOf([
+				producer1.account.address,
+				item(1n, 1n),
+			]),
+			25n,
+		);
+		assert.equal(
+			await registry.read.balanceOf([
+				producer1.account.address,
+				item(1n, 0n),
+			]),
+			100n,
+		);
+	});
+
+	it("moves several items of a lot in one batch transfer", async function () {
+		const { registry, producer1, other } =
+			await networkHelpers.loadFixture(deployWithBatchLot);
+
+		await registry.write.safeBatchTransferFrom(
+			[
+				producer1.account.address,
+				other.account.address,
+				[item(1n, 0n), item(1n, 2n)],
+				[100n, 10n],
+				"0x",
+			],
+			{ account: producer1.account },
+		);
+
+		assert.deepEqual(
+			await registry.read.balanceOfBatch([
+				[other.account.address, other.account.address],
+				[item(1n, 0n), item(1n, 2n)],
+			]),
+			[100n, 10n],
+		);
+	});
+});
+
+describe("KritherRegistry — metadata directory", async function () {
+	it("resolves each item to its own JSON inside the lot directory", async function () {
+		const { registry } =
+			await networkHelpers.loadFixture(deployWithBatchLot);
+
+		assert.equal(await registry.read.uri([item(1n, 0n)]), `${CID}/0.json`);
+		assert.equal(await registry.read.uri([item(1n, 1n)]), `${CID}/1.json`);
+		assert.equal(await registry.read.uri([item(1n, 2n)]), `${CID}/2.json`);
+	});
+
+	it("rejects the uri of an index beyond the lot's item count", async function () {
+		const { registry } =
+			await networkHelpers.loadFixture(deployWithBatchLot);
+
+		await viem.assertions.revertWithCustomError(
+			registry.read.uri([item(1n, 3n)]),
+			registry,
+			"ItemNotFound",
+		);
+	});
+
+	it("rejects the uri of an item of a lot that does not exist", async function () {
+		const { registry } =
+			await networkHelpers.loadFixture(deployWithBatchLot);
+
+		await viem.assertions.revertWithCustomError(
+			registry.read.uri([item(99n, 0n)]),
+			registry,
+			"LotNotFound",
 		);
 	});
 });
@@ -436,37 +703,51 @@ describe("KritherRegistry — multiple lots", async function () {
 			await networkHelpers.loadFixture(deployTwoLots);
 
 		assert.equal(
-			await registry.read.balanceOf([producer1.account.address, 1n]),
+			await registry.read.balanceOf([
+				producer1.account.address,
+				item(1n, 0n),
+			]),
 			500n,
 		);
 		assert.equal(
-			await registry.read.balanceOf([producer2.account.address, 2n]),
+			await registry.read.balanceOf([
+				producer2.account.address,
+				item(2n, 0n),
+			]),
 			1n,
 		);
 	});
 
-	it("stores each lot's own CID", async function () {
+	it("stores each lot's own directory CID", async function () {
 		const { registry } = await networkHelpers.loadFixture(deployTwoLots);
 
-		assert.equal(await registry.read.uri([1n]), CID);
-		assert.equal(await registry.read.uri([2n]), NEW_CID);
+		const [, , lot1Cid] = await registry.read.lots([1n]);
+		const [, , lot2Cid] = await registry.read.lots([2n]);
+
+		assert.equal(lot1Cid, CID);
+		assert.equal(lot2Cid, NEW_CID);
+		assert.equal(await registry.read.uri([item(1n, 0n)]), `${CID}/0.json`);
+		assert.equal(
+			await registry.read.uri([item(2n, 0n)]),
+			`${NEW_CID}/0.json`,
+		);
 	});
 
 	it("tracks each lot's supply independently", async function () {
 		const { registry } = await networkHelpers.loadFixture(deployTwoLots);
 
-		assert.equal(await registry.read.totalSupply([1n]), 500n);
-		assert.equal(await registry.read.totalSupply([2n]), 1n);
+		assert.equal(await registry.read.totalSupply([item(1n, 0n)]), 500n);
+		assert.equal(await registry.read.totalSupply([item(2n, 0n)]), 1n);
 	});
 });
 
 describe("KritherRegistry — lifecycle steps", async function () {
-	it("lets a lot holder add a step and emits event", async function () {
+	it("lets an item holder add a step and emits event", async function () {
 		const { registry, producer1 } =
 			await networkHelpers.loadFixture(deployWithLot);
 
 		await viem.assertions.emit(
-			registry.write.addLifecycleChange([1n, CID], {
+			registry.write.addLifecycleChange([item(1n, 0n), CID], {
 				account: producer1.account,
 			}),
 			registry,
@@ -479,7 +760,7 @@ describe("KritherRegistry — lifecycle steps", async function () {
 			await networkHelpers.loadFixture(deployWithLot);
 
 		await viem.assertions.revertWithCustomError(
-			registry.write.addLifecycleChange([1n, CID], {
+			registry.write.addLifecycleChange([item(1n, 0n), CID], {
 				account: other.account,
 			}),
 			registry,
@@ -487,34 +768,70 @@ describe("KritherRegistry — lifecycle steps", async function () {
 		);
 	});
 
-	it("increments the lot's lifecycleChanges counter", async function () {
+	it("increments the item's lifecycleChanges counter", async function () {
 		const { registry, producer1 } =
 			await networkHelpers.loadFixture(deployWithLot);
 
-		const [, before] = await registry.read.lots([1n]);
-		await registry.write.addLifecycleChange([1n, NEW_CID], {
+		const before = await registry.read.lifecycleChanges([item(1n, 0n)]);
+		await registry.write.addLifecycleChange([item(1n, 0n), NEW_CID], {
 			account: producer1.account,
 		});
-		const [, after] = await registry.read.lots([1n]);
+		const after = await registry.read.lifecycleChanges([item(1n, 0n)]);
 
 		assert.equal(after, before + 1n);
 	});
 
-	it("records two successive changes on the same lot", async function () {
+	it("records two successive changes on the same item", async function () {
 		const { registry, producer1 } =
 			await networkHelpers.loadFixture(deployWithLot);
 
-		const [, before] = await registry.read.lots([1n]);
+		const before = await registry.read.lifecycleChanges([item(1n, 0n)]);
 
-		await registry.write.addLifecycleChange([1n, CID], {
+		await registry.write.addLifecycleChange([item(1n, 0n), CID], {
 			account: producer1.account,
 		});
-		await registry.write.addLifecycleChange([1n, NEW_CID], {
+		await registry.write.addLifecycleChange([item(1n, 0n), NEW_CID], {
 			account: producer1.account,
 		});
 
-		const [, after] = await registry.read.lots([1n]);
+		const after = await registry.read.lifecycleChanges([item(1n, 0n)]);
 		assert.equal(after, before + 2n);
+	});
+
+	it("keeps each item's counter independent within a lot", async function () {
+		const { registry, producer1 } =
+			await networkHelpers.loadFixture(deployWithBatchLot);
+
+		await registry.write.addLifecycleChange([item(1n, 1n), NEW_CID], {
+			account: producer1.account,
+		});
+
+		assert.equal(await registry.read.lifecycleChanges([item(1n, 1n)]), 1n);
+		assert.equal(await registry.read.lifecycleChanges([item(1n, 0n)]), 0n);
+		assert.equal(await registry.read.lifecycleChanges([item(1n, 2n)]), 0n);
+	});
+
+	it("reports the owning lot alongside the item in the event", async function () {
+		const { registry, producer1 } =
+			await networkHelpers.loadFixture(deployWithBatchLot);
+
+		await viem.assertions.emitWithArgs(
+			registry.write.addLifecycleChange([item(1n, 2n), NEW_CID], {
+				account: producer1.account,
+			}),
+			registry,
+			"LifecycleChanged",
+			[
+				item(1n, 2n),
+				1n,
+				10n,
+				(owner: string) =>
+					owner.toLowerCase() ===
+					producer1.account.address.toLowerCase(),
+				NEW_CID,
+				anyTimestamp,
+			],
+		);
 	});
 
 	it("rejects a lifecycle change with an empty CID", async function () {
@@ -522,7 +839,7 @@ describe("KritherRegistry — lifecycle steps", async function () {
 			await networkHelpers.loadFixture(deployWithLot);
 
 		await viem.assertions.revertWithCustomError(
-			registry.write.addLifecycleChange([1n, ""], {
+			registry.write.addLifecycleChange([item(1n, 0n), ""], {
 				account: producer1.account,
 			}),
 			registry,
@@ -561,7 +878,31 @@ describe("KritherRegistry — pause (SecOps)", async function () {
 		await registry.write.pause({ account: pauser.account });
 
 		await viem.assertions.revertWithCustomError(
-			registry.write.mintLot([500n, CID], { account: producer1.account }),
+			registry.write.mintLot([[500n], CID], {
+				account: producer1.account,
+			}),
+			registry,
+			"EnforcedPause",
+		);
+	});
+
+	it("freezes transfers while paused", async function () {
+		const { registry, pauser, producer1, other } =
+			await networkHelpers.loadFixture(deployForPause);
+
+		await registry.write.pause({ account: pauser.account });
+
+		await viem.assertions.revertWithCustomError(
+			registry.write.safeTransferFrom(
+				[
+					producer1.account.address,
+					other.account.address,
+					item(1n, 0n),
+					1n,
+					"0x",
+				],
+				{ account: producer1.account },
+			),
 			registry,
 			"EnforcedPause",
 		);
@@ -574,7 +915,7 @@ describe("KritherRegistry — pause (SecOps)", async function () {
 		await registry.write.pause({ account: pauser.account });
 
 		await viem.assertions.revertWithCustomError(
-			registry.write.addLifecycleChange([1n, NEW_CID], {
+			registry.write.addLifecycleChange([item(1n, 0n), NEW_CID], {
 				account: producer1.account,
 			}),
 			registry,
@@ -590,7 +931,9 @@ describe("KritherRegistry — pause (SecOps)", async function () {
 		await registry.write.unpause({ account: pauser.account });
 
 		await viem.assertions.emit(
-			registry.write.mintLot([500n, CID], { account: producer1.account }),
+			registry.write.mintLot([[500n], CID], {
+				account: producer1.account,
+			}),
 			registry,
 			"LotCreated",
 		);
@@ -658,7 +1001,7 @@ describe("KritherRegistry — producer reassignment", async function () {
 		]);
 
 		// producer1 already holds lot #1; mint a second lot from the same producer
-		await registry.write.mintLot([1n, NEW_CID], {
+		await registry.write.mintLot([[1n], NEW_CID], {
 			account: producer1.account,
 		});
 
@@ -902,7 +1245,13 @@ describe("KritherRegistry — storage locators (portability)", async function ()
 			}),
 			registry,
 			"LocatorAdded",
-			[1n, keccak256(toHex("arweave")), "arweave", ARWEAVE_POINTER, anyTimestamp],
+			[
+				1n,
+				keccak256(toHex("arweave")),
+				"arweave",
+				ARWEAVE_POINTER,
+				anyTimestamp,
+			],
 		);
 	});
 
@@ -985,22 +1334,31 @@ describe("KritherRegistry — storage locators (portability)", async function ()
 			}),
 			registry,
 			"LocatorAdded",
-			[1n, keccak256(toHex("arweave")), "arweave", ARWEAVE_POINTER, anyTimestamp],
+			[
+				1n,
+				keccak256(toHex("arweave")),
+				"arweave",
+				ARWEAVE_POINTER,
+				anyTimestamp,
+			],
 		);
 	});
 
-	it("never alters the anchored CID of the lot", async function () {
+	it("never alters the anchored directory CID of the lot", async function () {
 		const { registry, admin } =
 			await networkHelpers.loadFixture(deployWithLot);
 
-		const anchored = await registry.read.uri([1n]);
+		const anchored = await registry.read.uri([item(1n, 0n)]);
 
 		await registry.write.addLocator([1n, "arweave", ARWEAVE_POINTER], {
 			account: admin.account,
 		});
 
-		assert.equal(await registry.read.uri([1n]), anchored);
-		assert.equal(await registry.read.uri([1n]), CID);
+		assert.equal(await registry.read.uri([item(1n, 0n)]), anchored);
+		assert.equal(
+			await registry.read.uri([item(1n, 0n)]),
+			`${CID}/0.json`,
+		);
 	});
 
 	it("freezes locator additions while paused", async function () {
@@ -1025,16 +1383,14 @@ describe("KritherRegistry — ownership transfer (resale)", async function () {
 			await networkHelpers.loadFixture(deploySoldUniqueLot);
 
 		await viem.assertions.emit(
-			registry.write.addLifecycleChange([1n, NEW_CID], {
+			registry.write.addLifecycleChange([item(1n, 0n), NEW_CID], {
 				account: other.account,
 			}),
 			registry,
 			"LifecycleChanged",
 		);
 
-		const [, lifecycleChanges] = await registry.read.lots([1n]);
-
-		assert.equal(lifecycleChanges, 1n);
+		assert.equal(await registry.read.lifecycleChanges([item(1n, 0n)]), 1n);
 	});
 
 	it("stops the former holder from adding steps once the unit is sold", async function () {
@@ -1042,7 +1398,7 @@ describe("KritherRegistry — ownership transfer (resale)", async function () {
 			await networkHelpers.loadFixture(deploySoldUniqueLot);
 
 		await viem.assertions.revertWithCustomError(
-			registry.write.addLifecycleChange([1n, NEW_CID], {
+			registry.write.addLifecycleChange([item(1n, 0n), NEW_CID], {
 				account: producer1.account,
 			}),
 			registry,
