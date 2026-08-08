@@ -7,9 +7,25 @@
 # virtual source names (npm/<pkg>@<version>/..., project/...). This script
 # compiles, merges the split build-info into the HH2 shape with real paths, and
 # runs slither with --ignore-compile against the merged artifact.
+#
+# The merge consumes the HH3 build-info, so the run is bracketed by a clean
+# rebuild on both sides: without the leading clean a second run would find a
+# warm cache ("No contracts to compile") over build-info that no longer matches
+# the sources, and Slither would abort with "source code appears to be out of
+# sync with the build artifacts on disk". The trailing restore runs from a trap
+# so the tree is left buildable even if the merge or Slither itself fails.
+#
+# Exits with Slither's own status: 0 clean, non-zero when findings are reported.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+restore_artifacts() {
+    npx hardhat clean
+    npx hardhat compile
+}
+trap restore_artifacts EXIT
+
+npx hardhat clean
 npx hardhat compile
 
 python3 - << 'EOF'
@@ -51,4 +67,6 @@ for inp in inputs:
     os.remove(base + '.output.json')
 EOF
 
-slither . --ignore-compile --filter-paths node_modules "$@"
+status=0
+slither . --ignore-compile --filter-paths node_modules "$@" || status=$?
+exit "$status"
