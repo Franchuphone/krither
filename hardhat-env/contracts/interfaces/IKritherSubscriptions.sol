@@ -98,14 +98,8 @@ interface IKritherSubscriptions {
     /// @notice Buys or renews a plan for the caller, paid in native currency.
     function subscribe(uint8 planId) external payable;
 
-    /// @notice Opens a plan settled off-chain, keyed by its payment reference.
-    function subscribeFor(
-        address account,
-        uint8 planId,
-        bytes32 paymentRef
-    ) external;
-
     /// @notice Ends an account's subscription immediately, without refund.
+    /// @dev Open to the subscriber for their own account, and to USERS_ADMIN.
     function cancel(address account) external;
 
     function pause() external;

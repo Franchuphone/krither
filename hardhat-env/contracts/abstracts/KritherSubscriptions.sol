@@ -2,6 +2,7 @@
 pragma solidity 0.8.31;
 
 import {IKritherSubscriptions} from "../interfaces/IKritherSubscriptions.sol";
+import {Constants} from "../libraries/Constants.sol";
 import {Errors} from "../abstracts/Errors.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {
@@ -13,7 +14,8 @@ abstract contract KritherSubscriptions is
     Errors,
     Pausable
 {
-    bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
+    bytes32 public constant DEFAULT_ADMIN_ROLE = Constants.DEFAULT_ADMIN_ROLE;
+    bytes32 public constant USERS_ADMIN_ROLE = Constants.USERS_ADMIN_ROLE;
 
     address public immutable registry;
 

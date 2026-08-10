@@ -11,10 +11,12 @@ library Constants {
 
     /// @dev Retyping an identifier per contract risks a mismatch that no test
     ///      surfaces: the role simply resolves to an address nobody holds.
+    bytes32 internal constant DEFAULT_ADMIN_ROLE = 0x00;
     bytes32 internal constant PRODUCER_ROLE = keccak256("PRODUCER_ROLE");
     bytes32 internal constant RESELLER_ROLE = keccak256("RESELLER_ROLE");
     bytes32 internal constant CONSUMER_ROLE = keccak256("CONSUMER_ROLE");
     bytes32 internal constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 internal constant USERS_ADMIN_ROLE = keccak256("USERS_ADMIN_ROLE");
 
     // TOKEN IDS
 
