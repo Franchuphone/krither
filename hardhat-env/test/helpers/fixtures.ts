@@ -8,8 +8,8 @@ export const NEW_CID = "bafkreiupdatedlifecyclemetadatadryingstep";
 
 export const ARWEAVE_POINTER = "kX3jLm9QvRt2wYzB4nH7pC1sD8fG5hJ0kL6mN9oP2qR";
 
-/** Monthly producer plan seeded by the subscriptions constructor */
-export const PRODUCER_PRICE = parseEther("0.01");
+/** Terms the admin opens the monthly producer plan with */
+export const PLAN_PRICE = parseEther("0.01");
 export const MONTHLY_QUOTA = 1000;
 export const MONTHLY_PERIOD = 30 * 24 * 60 * 60;
 
@@ -157,16 +157,28 @@ export async function deployForPause() {
 	return fixture;
 }
 
-/** Deploys the registry and a subscriptions contract wired to it */
+/** Deploys the registry and a paymaster wired to it, with no plan on sale */
 export async function deploySubscriptions() {
 	const fixture = await deployRegistry();
 
-	const subscriptions = await viem.deployContract("KritherSubscriptions", [
+	const subscriptions = await viem.deployContract("KritherPaymaster", [
 		fixture.registry.address,
-		PRODUCER_PRICE,
 	]);
 
 	return { ...fixture, subscriptions };
+}
+
+/** Opens the monthly producer plan as plan 0 */
+export async function deployWithProducerPlan() {
+	const fixture = await deploySubscriptions();
+	const PRODUCER_ROLE = await fixture.registry.read.PRODUCER_ROLE();
+
+	await fixture.subscriptions.write.addPlan(
+		[PRODUCER_ROLE, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD],
+		{ account: fixture.admin.account },
+	);
+
+	return fixture;
 }
 
 /**

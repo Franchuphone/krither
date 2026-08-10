@@ -11,6 +11,19 @@ interface IKritherSubscriptions {
         bool enabled;
     }
 
+    /// @notice Allowance currently held by one account.
+    /// @dev A subscription runs as a chain of windows: `periodEnd` closes the
+    ///      one `used` is counting, `expiresAt` closes the last one paid for.
+    ///      Renewing appends a window, so allowances never pool.
+    struct Subscription {
+        uint8 planId;
+        uint32 quota;
+        uint32 period;
+        uint64 periodEnd;
+        uint64 expiresAt;
+        uint32 used;
+    }
+
     event PlanSet(
         uint8 indexed planId,
         bytes32 indexed role,
@@ -20,9 +33,19 @@ interface IKritherSubscriptions {
         bool enabled
     );
 
+    event Subscribed(
+        address indexed account,
+        uint8 indexed planId,
+        uint64 expiresAt,
+        uint32 quota,
+        uint256 paid
+    );
+
+    event SubscriptionCancelled(address indexed account, uint256 cancelledAt);
+
     /// @notice Terms sold under a plan.
-    function plans(
-        uint256 planId
+    function planTerms(
+        uint8 planId
     )
         external
         view
@@ -53,4 +76,39 @@ interface IKritherSubscriptions {
         uint32 period,
         bool enabled
     ) external;
+
+    /// @notice Terms, window and consumption of an account's subscription.
+    function subscriptions(
+        address account
+    )
+        external
+        view
+        returns (
+            uint8 planId,
+            uint32 quota,
+            uint32 period,
+            uint64 periodEnd,
+            uint64 expiresAt,
+            uint32 used
+        );
+
+    /// @notice Transactions an account may still have sponsored this period.
+    function remainingQuota(address account) external view returns (uint32);
+
+    /// @notice Buys or renews a plan for the caller, paid in native currency.
+    function subscribe(uint8 planId) external payable;
+
+    /// @notice Opens a plan settled off-chain, keyed by its payment reference.
+    function subscribeFor(
+        address account,
+        uint8 planId,
+        bytes32 paymentRef
+    ) external;
+
+    /// @notice Ends an account's subscription immediately, without refund.
+    function cancel(address account) external;
+
+    function pause() external;
+
+    function unpause() external;
 }
