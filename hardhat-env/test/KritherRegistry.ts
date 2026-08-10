@@ -11,6 +11,7 @@ import {
 	deployAccredited,
 	deployRegistry,
 	deploySoldUniqueLot,
+	deployTwoBatchLots,
 	deployTwoLots,
 	deployWithBatchLot,
 	deployWithLot,
@@ -414,6 +415,171 @@ describe("KritherRegistry - multiple lots", async function () {
 
 		assert.equal(await registry.read.totalSupply([item(1n, 0n)]), 500n);
 		assert.equal(await registry.read.totalSupply([item(2n, 0n)]), 1n);
+	});
+});
+
+describe("KritherRegistry - id isolation across lots", async function () {
+	it("mints no id twice across two multi-item lots", async function () {
+		const { registry } = await networkHelpers.loadFixture(deployTwoBatchLots);
+
+		const lot1 = await registry.read.itemsOf([1n]);
+		const lot2 = await registry.read.itemsOf([2n]);
+		const all = [...lot1, ...lot2];
+
+		assert.equal(lot1.length, 3);
+		assert.equal(lot2.length, 2);
+		// a Set collapses duplicates: same size means every id is unique
+		assert.equal(new Set(all).size, all.length);
+	});
+
+	it("keeps the index-0 item of each lot on a distinct id", async function () {
+		const { registry } = await networkHelpers.loadFixture(deployTwoBatchLots);
+
+		// both lots own an index 0; only the high 128 bits separate them
+		assert.notEqual(item(1n, 0n), item(2n, 0n));
+		assert.equal(await registry.read.lotOf([item(1n, 0n)]), 1n);
+		assert.equal(await registry.read.lotOf([item(2n, 0n)]), 2n);
+		assert.equal(await registry.read.indexOf([item(1n, 0n)]), 0n);
+		assert.equal(await registry.read.indexOf([item(2n, 0n)]), 0n);
+	});
+
+	it("resolves every minted id back to the lot that minted it", async function () {
+		const { registry } = await networkHelpers.loadFixture(deployTwoBatchLots);
+
+		for (const [idLot, ids] of [
+			[1n, await registry.read.itemsOf([1n])],
+			[2n, await registry.read.itemsOf([2n])],
+		] as const) {
+			for (const [index, id] of ids.entries()) {
+				assert.equal(await registry.read.lotOf([id]), idLot);
+				assert.equal(await registry.read.indexOf([id]), BigInt(index));
+			}
+		}
+	});
+
+	it("leaves the first lot's balances untouched when a second lot is minted", async function () {
+		const { registry, producer1, producer2 } =
+			await networkHelpers.loadFixture(deployTwoBatchLots);
+
+		assert.deepEqual(
+			await registry.read.balanceOfBatch([
+				[
+					producer1.account.address,
+					producer1.account.address,
+					producer1.account.address,
+				],
+				[item(1n, 0n), item(1n, 1n), item(1n, 2n)],
+			]),
+			[100n, 40n, 10n],
+		);
+		assert.deepEqual(
+			await registry.read.balanceOfBatch([
+				[producer2.account.address, producer2.account.address],
+				[item(2n, 0n), item(2n, 1n)],
+			]),
+			[7n, 3n],
+		);
+	});
+
+	it("gives each producer a zero balance on the other lot's items", async function () {
+		const { registry, producer1, producer2 } =
+			await networkHelpers.loadFixture(deployTwoBatchLots);
+
+		assert.equal(
+			await registry.read.balanceOf([producer1.account.address, item(2n, 0n)]),
+			0n,
+		);
+		assert.equal(
+			await registry.read.balanceOf([producer2.account.address, item(1n, 0n)]),
+			0n,
+		);
+	});
+
+	it("points each lot's items at its own metadata directory", async function () {
+		const { registry } = await networkHelpers.loadFixture(deployTwoBatchLots);
+
+		// same index, different lot, different directory
+		assert.equal(await registry.read.uri([item(1n, 0n)]), `${CID}/0.json`);
+		assert.equal(await registry.read.uri([item(2n, 0n)]), `${NEW_CID}/0.json`);
+		assert.equal(await registry.read.uri([item(1n, 1n)]), `${CID}/1.json`);
+		assert.equal(await registry.read.uri([item(2n, 1n)]), `${NEW_CID}/1.json`);
+	});
+
+	it("bounds the item index per lot, not globally", async function () {
+		const { registry } = await networkHelpers.loadFixture(deployTwoBatchLots);
+
+		// index 2 is valid in lot 1 (3 items) but out of range in lot 2 (2 items)
+		assert.equal(await registry.read.uri([item(1n, 2n)]), `${CID}/2.json`);
+
+		await viem.assertions.revertWithCustomError(
+			registry.read.uri([item(2n, 2n)]),
+			registry,
+			"ItemNotFound",
+		);
+	});
+
+	it("keeps each lot's item count and producer independent", async function () {
+		const { registry, producer1, producer2 } =
+			await networkHelpers.loadFixture(deployTwoBatchLots);
+
+		const [lot1Producer, lot1Count, lot1Cid] = await registry.read.lots([1n]);
+		const [lot2Producer, lot2Count, lot2Cid] = await registry.read.lots([2n]);
+
+		assert.equal(lot1Count, 3n);
+		assert.equal(lot2Count, 2n);
+		assert.equal(lot1Cid, CID);
+		assert.equal(lot2Cid, NEW_CID);
+		assert.equal(
+			lot1Producer.toLowerCase(),
+			producer1.account.address.toLowerCase(),
+		);
+		assert.equal(
+			lot2Producer.toLowerCase(),
+			producer2.account.address.toLowerCase(),
+		);
+	});
+
+	it("tracks supply per item across both lots", async function () {
+		const { registry } = await networkHelpers.loadFixture(deployTwoBatchLots);
+
+		assert.equal(await registry.read.totalSupply([item(1n, 0n)]), 100n);
+		assert.equal(await registry.read.totalSupply([item(1n, 1n)]), 40n);
+		assert.equal(await registry.read.totalSupply([item(1n, 2n)]), 10n);
+		assert.equal(await registry.read.totalSupply([item(2n, 0n)]), 7n);
+		assert.equal(await registry.read.totalSupply([item(2n, 1n)]), 3n);
+	});
+
+	it("keeps lifecycle counters separate for the same index in two lots", async function () {
+		const { registry, producer1, producer2 } =
+			await networkHelpers.loadFixture(deployTwoBatchLots);
+
+		await registry.write.addLifecycleChange([item(1n, 0n), NEW_CID], {
+			account: producer1.account,
+		});
+		await registry.write.addLifecycleChange([item(2n, 0n), CID], {
+			account: producer2.account,
+		});
+		await registry.write.addLifecycleChange([item(2n, 0n), NEW_CID], {
+			account: producer2.account,
+		});
+
+		assert.equal(await registry.read.lifecycleChanges([item(1n, 0n)]), 1n);
+		assert.equal(await registry.read.lifecycleChanges([item(2n, 0n)]), 2n);
+		assert.equal(await registry.read.lifecycleChanges([item(1n, 1n)]), 0n);
+	});
+
+	it("stops a producer touching an item of the other producer's lot", async function () {
+		const { registry, producer2 } =
+			await networkHelpers.loadFixture(deployTwoBatchLots);
+
+		// producer2 holds index 0 of lot 2, but nothing of lot 1
+		await viem.assertions.revertWithCustomError(
+			registry.write.addLifecycleChange([item(1n, 0n), NEW_CID], {
+				account: producer2.account,
+			}),
+			registry,
+			"NotHolder",
+		);
 	});
 });
 
