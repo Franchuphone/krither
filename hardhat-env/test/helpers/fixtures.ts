@@ -93,6 +93,34 @@ export async function deployTwoLots() {
 	return fixture;
 }
 
+/**
+ * Two producers, each minting a DIFFERENT multi-item lot. Lot 1 holds three
+ * items, lot 2 holds two, so both lots own an item at index 0 and 1 while only
+ * lot 1 owns index 2 - the shape that would expose any id collision.
+ */
+export async function deployTwoBatchLots() {
+	const fixture = await deployRegistry();
+	const PRODUCER_ROLE = await fixture.registry.read.PRODUCER_ROLE();
+
+	await fixture.registry.write.grantRole(
+		[PRODUCER_ROLE, fixture.producer1.account.address],
+		{ account: fixture.admin.account },
+	);
+	await fixture.registry.write.grantRole(
+		[PRODUCER_ROLE, fixture.producer2.account.address],
+		{ account: fixture.admin.account },
+	);
+
+	await fixture.registry.write.mintLot([[100n, 40n, 10n], CID], {
+		account: fixture.producer1.account,
+	});
+	await fixture.registry.write.mintLot([[7n, 3n], NEW_CID], {
+		account: fixture.producer2.account,
+	});
+
+	return fixture;
+}
+
 /** Accredits producer1, producer2, producer3 (in that order) as producers. */
 export async function deployThreeProducers() {
 	const fixture = await deployRegistry();
