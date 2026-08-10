@@ -11,4 +11,16 @@ interface IErrors {
     error LotNotFound();
     error ItemNotFound();
     error AlreadyProducer();
+    error NotEntryPoint();
+    error NotAccredited();
+    error PlanUnknown();
+    error PlanDisabled();
+    error PlanLimitReached();
+    error PriceMismatch();
+    error QuotaExhausted();
+    error SubscriptionExpired();
+    error TargetNotAllowed();
+    error CallShapeUnsupported();
+    error CostTooHigh();
+    error WithdrawFailed();
 }

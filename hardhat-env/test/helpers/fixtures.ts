@@ -1,4 +1,5 @@
 import { network } from "hardhat";
+import { parseEther } from "viem";
 
 export const { viem, networkHelpers } = await network.create();
 
@@ -6,6 +7,11 @@ export const CID = "bafkreialgaeseaweedharvest2026quiberon";
 export const NEW_CID = "bafkreiupdatedlifecyclemetadatadryingstep";
 
 export const ARWEAVE_POINTER = "kX3jLm9QvRt2wYzB4nH7pC1sD8fG5hJ0kL6mN9oP2qR";
+
+/** Monthly producer plan seeded by the subscriptions constructor */
+export const PRODUCER_PRICE = parseEther("0.01");
+export const MONTHLY_QUOTA = 1000;
+export const MONTHLY_PERIOD = 30 * 24 * 60 * 60;
 
 /** Packs a lot id and an item index into the token id the contract mints */
 export const item = (idLot: bigint, index: bigint) => (idLot << 128n) | index;
@@ -149,6 +155,18 @@ export async function deployForPause() {
 	);
 
 	return fixture;
+}
+
+/** Deploys the registry and a subscriptions contract wired to it */
+export async function deploySubscriptions() {
+	const fixture = await deployRegistry();
+
+	const subscriptions = await viem.deployContract("KritherSubscriptions", [
+		fixture.registry.address,
+		PRODUCER_PRICE,
+	]);
+
+	return { ...fixture, subscriptions };
 }
 
 /**
