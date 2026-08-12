@@ -108,6 +108,7 @@ contract KritherRegistry is
         string calldata cid
     )
         external
+        whenNotPaused
         onlyRole(PRODUCER_ROLE)
         checkNonZero(quantities.length)
         checkEmptyString(cid)
@@ -132,7 +133,7 @@ contract KritherRegistry is
     function addLifecycleChange(
         uint256 idItem,
         string calldata cid
-    ) external checkEmptyString(cid) onlyHolder(idItem) whenNotPaused {
+    ) external whenNotPaused checkEmptyString(cid) onlyHolder(idItem) {
         lifecycleChanges[idItem]++;
         emit LifecycleChanged(
             idItem,
@@ -153,11 +154,11 @@ contract KritherRegistry is
         string calldata pointer
     )
         external
+        whenNotPaused
         onlyRole(DEFAULT_ADMIN_ROLE)
         lotExists(idLot)
         checkEmptyString(service)
         checkEmptyString(pointer)
-        whenNotPaused
     {
         emit LocatorAdded(
             idLot,

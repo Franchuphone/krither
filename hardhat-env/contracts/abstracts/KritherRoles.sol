@@ -7,6 +7,7 @@ import {
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {IKritherRoles} from "../interfaces/IKritherRoles.sol";
+import {Constants} from "../libraries/Constants.sol";
 import {Errors} from "./Errors.sol";
 
 /// @notice Accreditation, producer identity and the circuit breaker.
@@ -18,10 +19,10 @@ abstract contract KritherRoles is
     AccessControlEnumerable,
     Pausable
 {
-    bytes32 public constant PRODUCER_ROLE = keccak256("PRODUCER_ROLE");
-    bytes32 public constant RESELLER_ROLE = keccak256("RESELLER_ROLE");
-    bytes32 public constant CONSUMER_ROLE = keccak256("CONSUMER_ROLE");
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 public constant PRODUCER_ROLE = Constants.PRODUCER_ROLE;
+    bytes32 public constant RESELLER_ROLE = Constants.RESELLER_ROLE;
+    bytes32 public constant CONSUMER_ROLE = Constants.CONSUMER_ROLE;
+    bytes32 public constant PAUSER_ROLE = Constants.PAUSER_ROLE;
 
     uint256 private _nextProducerId;
 
@@ -54,9 +55,9 @@ abstract contract KritherRoles is
         address newAddress
     )
         external
+        whenNotPaused
         onlyRole(DEFAULT_ADMIN_ROLE)
         checkAddressZero(newAddress)
-        whenNotPaused
     {
         require(oldAddress != newAddress, InputSimilar());
         require(hasRole(PRODUCER_ROLE, oldAddress), NotProducer());
