@@ -79,6 +79,7 @@ abstract contract KritherSubscriptions is
         uint32 period
     )
         external
+        whenNotPaused
         onlyRegistryRole(DEFAULT_ADMIN_ROLE)
         checkNonZero(quota)
         checkNonZero(period)
@@ -98,6 +99,7 @@ abstract contract KritherSubscriptions is
         bool enabled
     )
         external
+        whenNotPaused
         onlyRegistryRole(DEFAULT_ADMIN_ROLE)
         checkNonZero(quota)
         checkNonZero(period)

@@ -578,6 +578,39 @@ describe("KritherSubscriptions - pause (SecOps)", async function () {
 		);
 	});
 
+	it("freezes opening a plan while paused", async function () {
+		const { subscriptions, registry, admin, pauser } =
+			await networkHelpers.loadFixture(deploySubscriptionsForPause);
+
+		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
+		await subscriptions.write.pause({ account: pauser.account });
+
+		await viem.assertions.revertWithCustomError(
+			subscriptions.write.addPlan(
+				[PRODUCER_ROLE, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD],
+				{ account: admin.account },
+			),
+			subscriptions,
+			"EnforcedPause",
+		);
+	});
+
+	it("freezes repricing a plan while paused", async function () {
+		const { subscriptions, admin, pauser } =
+			await networkHelpers.loadFixture(deploySubscriptionsForPause);
+
+		await subscriptions.write.pause({ account: pauser.account });
+
+		await viem.assertions.revertWithCustomError(
+			subscriptions.write.setPlan(
+				[0, PLAN_PRICE * 2n, MONTHLY_QUOTA, MONTHLY_PERIOD, true],
+				{ account: admin.account },
+			),
+			subscriptions,
+			"EnforcedPause",
+		);
+	});
+
 	it("resumes subscriptions after unpause", async function () {
 		const { subscriptions, pauser, producer1 } =
 			await networkHelpers.loadFixture(deploySubscriptionsForPause);
