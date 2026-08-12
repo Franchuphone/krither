@@ -15,11 +15,13 @@ abstract contract KritherSubscriptions is
     Pausable
 {
     bytes32 public constant DEFAULT_ADMIN_ROLE = Constants.DEFAULT_ADMIN_ROLE;
-    bytes32 public constant USERS_ADMIN_ROLE = Constants.USERS_ADMIN_ROLE;
+    bytes32 public constant PAUSER_ROLE = Constants.PAUSER_ROLE;
+
+    mapping(address => Subscription) internal _subscriptions;
 
     address public immutable registry;
 
-    Plan[] internal plans;
+    Plan[] internal _plans;
 
     constructor(address registry_) checkAddressZero(registry_) {
         registry = registry_;
@@ -40,7 +42,7 @@ abstract contract KritherSubscriptions is
     }
 
     modifier checkPlanExists(uint8 planId) {
-        require(planId < plans.length, PlanUnknown());
+        require(planId < _plans.length, PlanUnknown());
         _;
     }
 
@@ -58,7 +60,7 @@ abstract contract KritherSubscriptions is
             bool enabled
         )
     {
-        Plan storage plan = plans[planId];
+        Plan storage plan = _plans[planId];
         role = plan.role;
         price = plan.price;
         quota = plan.quota;
@@ -67,7 +69,7 @@ abstract contract KritherSubscriptions is
     }
 
     function planCount() external view returns (uint256) {
-        return plans.length;
+        return _plans.length;
     }
 
     function addPlan(
@@ -82,9 +84,9 @@ abstract contract KritherSubscriptions is
         checkNonZero(period)
         returns (uint8 planId)
     {
-        require(plans.length < type(uint8).max, PlanLimitReached());
-        planId = uint8(plans.length);
-        plans.push(Plan(role, price, quota, period, true));
+        require(_plans.length < type(uint8).max, PlanLimitReached());
+        planId = uint8(_plans.length);
+        _plans.push(Plan(role, price, quota, period, true));
         emit PlanSet(planId, role, price, quota, period, true);
     }
 
@@ -101,11 +103,88 @@ abstract contract KritherSubscriptions is
         checkNonZero(period)
         checkPlanExists(planId)
     {
-        Plan storage plan = plans[planId];
+        Plan storage plan = _plans[planId];
         plan.price = price;
         plan.quota = quota;
         plan.period = period;
         plan.enabled = enabled;
         emit PlanSet(planId, plan.role, price, quota, period, enabled);
+    }
+
+    function subscriptions(
+        address account
+    )
+        external
+        view
+        returns (
+            uint8 planId,
+            uint32 quota,
+            uint32 used,
+            uint32 period,
+            uint64 periodEnd,
+            uint64 expiresAt
+        )
+    {
+        Subscription storage subscription = _subscriptions[account];
+        planId = subscription.planId;
+        quota = subscription.quota;
+        used = subscription.used;
+        period = subscription.period;
+        periodEnd = subscription.periodEnd;
+        expiresAt = subscription.expiresAt;
+    }
+
+    function remainingQuota(address account) external view returns (uint32) {
+        Subscription storage subscription = _subscriptions[account];
+        if (block.timestamp > subscription.expiresAt) {
+            return 0;
+        }
+        if (block.timestamp > subscription.periodEnd) {
+            return subscription.quota;
+        }
+        return subscription.quota - subscription.used;
+    }
+
+    function subscribe(
+        uint8 planId
+    )
+        external
+        payable
+        whenNotPaused
+        checkPlanExists(planId)
+        onlyRegistryRole(_plans[planId].role)
+    {
+        Subscription storage subscription = _subscriptions[msg.sender];
+        Plan storage plan = _plans[planId];
+        require(plan.enabled, PlanDisabled());
+        require(msg.value == plan.price, PriceMismatch());
+        uint32 quota = plan.quota;
+        uint32 used = subscription.periodEnd > block.timestamp
+            ? subscription.used
+            : 0;
+        uint32 period = plan.period;
+        uint64 periodEnd = subscription.periodEnd > block.timestamp
+            ? subscription.periodEnd
+            : uint64(block.timestamp + period);
+        uint64 expiresAt = subscription.expiresAt > block.timestamp
+            ? subscription.expiresAt + period
+            : uint64(block.timestamp + period);
+        _subscriptions[msg.sender] = Subscription(
+            planId,
+            quota,
+            used,
+            period,
+            periodEnd,
+            expiresAt
+        );
+        emit Subscribed(msg.sender, planId, expiresAt, quota);
+    }
+
+    function pause() external onlyRegistryRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRegistryRole(PAUSER_ROLE) {
+        _unpause();
     }
 }

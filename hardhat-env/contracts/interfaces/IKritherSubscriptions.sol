@@ -18,10 +18,10 @@ interface IKritherSubscriptions {
     struct Subscription {
         uint8 planId;
         uint32 quota;
+        uint32 used;
         uint32 period;
         uint64 periodEnd;
         uint64 expiresAt;
-        uint32 used;
     }
 
     event PlanSet(
@@ -37,11 +37,8 @@ interface IKritherSubscriptions {
         address indexed account,
         uint8 indexed planId,
         uint64 expiresAt,
-        uint32 quota,
-        uint256 paid
+        uint32 quota
     );
-
-    event SubscriptionCancelled(address indexed account, uint256 cancelledAt);
 
     /// @notice Terms sold under a plan.
     function planTerms(
@@ -86,10 +83,10 @@ interface IKritherSubscriptions {
         returns (
             uint8 planId,
             uint32 quota,
+            uint32 used,
             uint32 period,
             uint64 periodEnd,
-            uint64 expiresAt,
-            uint32 used
+            uint64 expiresAt
         );
 
     /// @notice Transactions an account may still have sponsored this period.
@@ -97,10 +94,6 @@ interface IKritherSubscriptions {
 
     /// @notice Buys or renews a plan for the caller, paid in native currency.
     function subscribe(uint8 planId) external payable;
-
-    /// @notice Ends an account's subscription immediately, without refund.
-    /// @dev Open to the subscriber for their own account, and to USERS_ADMIN.
-    function cancel(address account) external;
 
     function pause() external;
 

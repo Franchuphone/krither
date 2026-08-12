@@ -21,8 +21,16 @@ export const anyTimestamp = (timestamp: bigint) => timestamp > 0n;
 
 /** Deploys registry with necessaries roles accounts  */
 export async function deployRegistry() {
-	const [admin, producer1, producer2, producer3, producer4, other, pauser] =
-		await viem.getWalletClients();
+	const [
+		admin,
+		producer1,
+		producer2,
+		producer3,
+		producer4,
+		other,
+		pauser,
+		usersAdmin,
+	] = await viem.getWalletClients();
 
 	const registry = await viem.deployContract("KritherRegistry", [
 		admin.account.address,
@@ -37,6 +45,7 @@ export async function deployRegistry() {
 		producer4,
 		other,
 		pauser,
+		usersAdmin,
 	};
 }
 
@@ -175,6 +184,44 @@ export async function deployWithProducerPlan() {
 
 	await fixture.subscriptions.write.addPlan(
 		[PRODUCER_ROLE, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD],
+		{ account: fixture.admin.account },
+	);
+
+	return fixture;
+}
+
+/** Producer plan open and producer1 accredited, so it may subscribe */
+export async function deployAccreditedSubscriber() {
+	const fixture = await deployWithProducerPlan();
+	const PRODUCER_ROLE = await fixture.registry.read.PRODUCER_ROLE();
+
+	await fixture.registry.write.grantRole(
+		[PRODUCER_ROLE, fixture.producer1.account.address],
+		{ account: fixture.admin.account },
+	);
+
+	return fixture;
+}
+
+/** producer1 holds one window of the producer plan */
+export async function deploySubscribed() {
+	const fixture = await deployAccreditedSubscriber();
+
+	await fixture.subscriptions.write.subscribe([0], {
+		account: fixture.producer1.account,
+		value: PLAN_PRICE,
+	});
+
+	return fixture;
+}
+
+/** producer1 accredited, `pauser` may freeze the paymaster */
+export async function deploySubscriptionsForPause() {
+	const fixture = await deployAccreditedSubscriber();
+	const PAUSER_ROLE = await fixture.registry.read.PAUSER_ROLE();
+
+	await fixture.registry.write.grantRole(
+		[PAUSER_ROLE, fixture.pauser.account.address],
 		{ account: fixture.admin.account },
 	);
 

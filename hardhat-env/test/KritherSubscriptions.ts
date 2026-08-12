@@ -7,7 +7,11 @@ import {
 	MONTHLY_PERIOD,
 	MONTHLY_QUOTA,
 	PLAN_PRICE,
+	anyTimestamp,
+	deployAccreditedSubscriber,
+	deploySubscribed,
 	deploySubscriptions,
+	deploySubscriptionsForPause,
 	deployWithProducerPlan,
 	networkHelpers,
 	viem,
@@ -268,6 +272,326 @@ describe("KritherSubscriptions - updating plans", async function () {
 			),
 			subscriptions,
 			"InputNumberNull",
+		);
+	});
+});
+
+describe("KritherSubscriptions - buying a subscription", async function () {
+	it("opens one window of the plan's length carrying its full quota", async function () {
+		const { subscriptions, producer1 } =
+			await networkHelpers.loadFixture(deploySubscribed);
+
+		const openedAt = await networkHelpers.time.latest();
+		const [planId, quota, used, period, periodEnd, expiresAt] =
+			await subscriptions.read.subscriptions([producer1.account.address]);
+
+		assert.equal(planId, 0);
+		assert.equal(quota, MONTHLY_QUOTA);
+		assert.equal(period, MONTHLY_PERIOD);
+		assert.equal(periodEnd, BigInt(openedAt + MONTHLY_PERIOD));
+		assert.equal(expiresAt, BigInt(openedAt + MONTHLY_PERIOD));
+		assert.equal(used, 0);
+	});
+
+	it("emits Subscribed with the terms it captured", async function () {
+		const { subscriptions, producer1 } = await networkHelpers.loadFixture(
+			deployAccreditedSubscriber,
+		);
+
+		await viem.assertions.emitWithArgs(
+			subscriptions.write.subscribe([0], {
+				account: producer1.account,
+				value: PLAN_PRICE,
+			}),
+			subscriptions,
+			"Subscribed",
+			[
+				(a: string) =>
+					a.toLowerCase() === producer1.account.address.toLowerCase(),
+				0,
+				anyTimestamp,
+				MONTHLY_QUOTA,
+			],
+		);
+	});
+
+	it("holds the payment in the contract", async function () {
+		const { subscriptions } =
+			await networkHelpers.loadFixture(deploySubscribed);
+
+		const publicClient = await viem.getPublicClient();
+
+		assert.equal(
+			await publicClient.getBalance({ address: subscriptions.address }),
+			PLAN_PRICE,
+		);
+	});
+
+	it("reports the plan's full quota as remaining", async function () {
+		const { subscriptions, producer1 } =
+			await networkHelpers.loadFixture(deploySubscribed);
+
+		assert.equal(
+			await subscriptions.read.remainingQuota([
+				producer1.account.address,
+			]),
+			MONTHLY_QUOTA,
+		);
+	});
+
+	it("refuses a payment that does not match the plan's price", async function () {
+		const { subscriptions, producer1 } = await networkHelpers.loadFixture(
+			deployAccreditedSubscriber,
+		);
+
+		await viem.assertions.revertWithCustomError(
+			subscriptions.write.subscribe([0], {
+				account: producer1.account,
+				value: PLAN_PRICE - 1n,
+			}),
+			subscriptions,
+			"PriceMismatch",
+		);
+	});
+
+	it("refuses an account that does not hold the plan's role", async function () {
+		const { subscriptions, producer2 } = await networkHelpers.loadFixture(
+			deployAccreditedSubscriber,
+		);
+
+		await viem.assertions.revertWithCustomError(
+			subscriptions.write.subscribe([0], {
+				account: producer2.account,
+				value: PLAN_PRICE,
+			}),
+			subscriptions,
+			"NotAccredited",
+		);
+	});
+
+	it("refuses a plan that was never created", async function () {
+		const { subscriptions, producer1 } = await networkHelpers.loadFixture(
+			deployAccreditedSubscriber,
+		);
+
+		await viem.assertions.revertWithCustomError(
+			subscriptions.write.subscribe([1], {
+				account: producer1.account,
+				value: PLAN_PRICE,
+			}),
+			subscriptions,
+			"PlanUnknown",
+		);
+	});
+
+	it("refuses a plan that has been retired", async function () {
+		const { subscriptions, admin, producer1 } =
+			await networkHelpers.loadFixture(deployAccreditedSubscriber);
+
+		await subscriptions.write.setPlan(
+			[0, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD, false],
+			{ account: admin.account },
+		);
+
+		await viem.assertions.revertWithCustomError(
+			subscriptions.write.subscribe([0], {
+				account: producer1.account,
+				value: PLAN_PRICE,
+			}),
+			subscriptions,
+			"PlanDisabled",
+		);
+	});
+});
+
+describe("KritherSubscriptions - renewing", async function () {
+	it("appends a window without moving the one in progress", async function () {
+		const { subscriptions, producer1 } =
+			await networkHelpers.loadFixture(deploySubscribed);
+
+		const [, , , , periodEndBefore, expiresAtBefore] =
+			await subscriptions.read.subscriptions([producer1.account.address]);
+
+		await subscriptions.write.subscribe([0], {
+			account: producer1.account,
+			value: PLAN_PRICE,
+		});
+
+		const [, , , , periodEndAfter, expiresAtAfter] =
+			await subscriptions.read.subscriptions([producer1.account.address]);
+
+		assert.equal(periodEndAfter, periodEndBefore);
+		assert.equal(expiresAtAfter, expiresAtBefore + BigInt(MONTHLY_PERIOD));
+	});
+
+	it("restarts both windows once the subscription has lapsed", async function () {
+		const { subscriptions, producer1 } =
+			await networkHelpers.loadFixture(deploySubscribed);
+
+		await networkHelpers.time.increase(MONTHLY_PERIOD + 1);
+
+		await subscriptions.write.subscribe([0], {
+			account: producer1.account,
+			value: PLAN_PRICE,
+		});
+
+		const renewedAt = await networkHelpers.time.latest();
+		const [, , , , periodEnd, expiresAt] =
+			await subscriptions.read.subscriptions([producer1.account.address]);
+
+		assert.equal(periodEnd, BigInt(renewedAt + MONTHLY_PERIOD));
+		assert.equal(expiresAt, BigInt(renewedAt + MONTHLY_PERIOD));
+	});
+
+	it("adopts the plan's current terms", async function () {
+		const { subscriptions, admin, producer1 } =
+			await networkHelpers.loadFixture(deploySubscribed);
+
+		await subscriptions.write.setPlan(
+			[0, PLAN_PRICE, 2000, MONTHLY_PERIOD, true],
+			{ account: admin.account },
+		);
+		await subscriptions.write.subscribe([0], {
+			account: producer1.account,
+			value: PLAN_PRICE,
+		});
+
+		const [, quota] = await subscriptions.read.subscriptions([
+			producer1.account.address,
+		]);
+
+		assert.equal(quota, 2000);
+	});
+
+	it("buys twelve windows of the quota, never one pooled allowance", async function () {
+		const { subscriptions, producer1 } =
+			await networkHelpers.loadFixture(deploySubscribed);
+
+		const [, , , , , expiresAtFirst] =
+			await subscriptions.read.subscriptions([producer1.account.address]);
+
+		for (let i = 0; i < 11; ++i) {
+			await subscriptions.write.subscribe([0], {
+				account: producer1.account,
+				value: PLAN_PRICE,
+			});
+		}
+
+		const [, quota, , , , expiresAt] =
+			await subscriptions.read.subscriptions([producer1.account.address]);
+
+		assert.equal(expiresAt, expiresAtFirst + BigInt(11 * MONTHLY_PERIOD));
+		assert.equal(quota, MONTHLY_QUOTA);
+	});
+});
+
+describe("KritherSubscriptions - windows and expiry", async function () {
+	it("hands back the full quota once a window has rolled, without writing", async function () {
+		const { subscriptions, producer1 } =
+			await networkHelpers.loadFixture(deploySubscribed);
+
+		// a second window, so the subscription outlives the first one
+		await subscriptions.write.subscribe([0], {
+			account: producer1.account,
+			value: PLAN_PRICE,
+		});
+		await networkHelpers.time.increase(MONTHLY_PERIOD + 1);
+
+		const now = await networkHelpers.time.latest();
+		const [, , , , periodEnd] = await subscriptions.read.subscriptions([
+			producer1.account.address,
+		]);
+
+		// the stored window is stale, yet the view compensates for it
+		assert.equal(periodEnd < BigInt(now), true);
+		assert.equal(
+			await subscriptions.read.remainingQuota([
+				producer1.account.address,
+			]),
+			MONTHLY_QUOTA,
+		);
+	});
+
+	it("reports nothing once the last window has closed", async function () {
+		const { subscriptions, producer1 } =
+			await networkHelpers.loadFixture(deploySubscribed);
+
+		await networkHelpers.time.increase(MONTHLY_PERIOD + 1);
+
+		assert.equal(
+			await subscriptions.read.remainingQuota([
+				producer1.account.address,
+			]),
+			0,
+		);
+	});
+
+	it("reports nothing for an account that never subscribed", async function () {
+		const { subscriptions, other } =
+			await networkHelpers.loadFixture(deploySubscribed);
+
+		assert.equal(
+			await subscriptions.read.remainingQuota([other.account.address]),
+			0,
+		);
+	});
+});
+
+describe("KritherSubscriptions - pause (SecOps)", async function () {
+	it("lets a PAUSER_ROLE holder pause and unpause", async function () {
+		const { subscriptions, pauser } = await networkHelpers.loadFixture(
+			deploySubscriptionsForPause,
+		);
+
+		await subscriptions.write.pause({ account: pauser.account });
+		assert.equal(await subscriptions.read.paused(), true);
+
+		await subscriptions.write.unpause({ account: pauser.account });
+		assert.equal(await subscriptions.read.paused(), false);
+	});
+
+	it("refuses pausing from an account without PAUSER_ROLE", async function () {
+		const { subscriptions, producer1 } = await networkHelpers.loadFixture(
+			deploySubscriptionsForPause,
+		);
+
+		await viem.assertions.revertWithCustomError(
+			subscriptions.write.pause({ account: producer1.account }),
+			subscriptions,
+			"NotAccredited",
+		);
+	});
+
+	it("freezes new subscriptions while paused", async function () {
+		const { subscriptions, pauser, producer1 } =
+			await networkHelpers.loadFixture(deploySubscriptionsForPause);
+
+		await subscriptions.write.pause({ account: pauser.account });
+
+		await viem.assertions.revertWithCustomError(
+			subscriptions.write.subscribe([0], {
+				account: producer1.account,
+				value: PLAN_PRICE,
+			}),
+			subscriptions,
+			"EnforcedPause",
+		);
+	});
+
+	it("resumes subscriptions after unpause", async function () {
+		const { subscriptions, pauser, producer1 } =
+			await networkHelpers.loadFixture(deploySubscriptionsForPause);
+
+		await subscriptions.write.pause({ account: pauser.account });
+		await subscriptions.write.unpause({ account: pauser.account });
+
+		await viem.assertions.emit(
+			subscriptions.write.subscribe([0], {
+				account: producer1.account,
+				value: PLAN_PRICE,
+			}),
+			subscriptions,
+			"Subscribed",
 		);
 	});
 });
