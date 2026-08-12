@@ -22,4 +22,27 @@ library Constants {
 
     /// @dev Width of the item index inside a packed ERC-1155 token id.
     uint256 internal constant LOT_ID_SHIFT = 128;
+
+    // ACCOUNT CALL SHAPES
+
+    /// @dev The two ways a reference ERC-4337 account forwards a call, and the
+    ///      only two the paymaster can read a target out of.
+    bytes4 internal constant EXECUTE_SELECTOR =
+        bytes4(keccak256("execute(address,uint256,bytes)"));
+    bytes4 internal constant EXECUTE_BATCH_SELECTOR =
+        bytes4(keccak256("executeBatch((address,uint256,bytes)[])"));
+
+    /// @dev Call an account may make once before it pays for anything.
+    bytes4 internal constant SUBSCRIBE_SELECTOR =
+        bytes4(keccak256("subscribe(uint8)"));
+
+    /// @dev Selector plus the word its plan id is padded into, so the id sits
+    ///      in the final byte.
+    uint256 internal constant SUBSCRIBE_CALL_LENGTH = 36;
+
+    // USER OPERATIONS
+
+    /// @dev Offset of the `validUntil` field inside a packed validation
+    ///      result, which sits just above the 20-byte authorizer.
+    uint256 internal constant VALID_UNTIL_SHIFT = 160;
 }
