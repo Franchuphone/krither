@@ -36,11 +36,14 @@ describe("KritherSubscriptions - deployment", async function () {
 	});
 
 	it("reverts when deployed with the zero address as registry", async function () {
-		const { subscriptions } =
+		const { subscriptions, entryPoint } =
 			await networkHelpers.loadFixture(deploySubscriptions);
 
 		await viem.assertions.revertWithCustomError(
-			viem.deployContract("KritherPaymaster", [zeroAddress]),
+			viem.deployContract("KritherPaymaster", [
+				zeroAddress,
+				entryPoint.address,
+			]),
 			subscriptions,
 			"InputAddressZero",
 		);

@@ -36,13 +36,24 @@ abstract contract KritherSubscriptions is
         return IAccessControl(registry).hasRole(role, account);
     }
 
+    /// @dev The guard behind `onlyRegistryRole`, reachable on its own for the
+    ///      checks a modifier cannot express, such as one branch of a call.
+    function _requireAccredited(bytes32 role, address account) internal view {
+        require(_hasRegistryRole(role, account), NotAccredited());
+    }
+
+    /// @dev The guard behind `checkPlanExists`, reachable the same way.
+    function _requirePlanExists(uint8 planId) internal view {
+        require(planId < _plans.length, PlanUnknown());
+    }
+
     modifier onlyRegistryRole(bytes32 role) {
-        require(_hasRegistryRole(role, msg.sender), NotAccredited());
+        _requireAccredited(role, msg.sender);
         _;
     }
 
     modifier checkPlanExists(uint8 planId) {
-        require(planId < _plans.length, PlanUnknown());
+        _requirePlanExists(planId);
         _;
     }
 
