@@ -33,7 +33,27 @@ interface IKritherPaymaster {
 
     event FreeOpsReset(address indexed account);
 
-    event RevenueWithdrawn(address indexed to, uint256 amount);
+    /// @notice Money entering the gas budget or the stake, naming which.
+    /// @param amountSent Advanced by the caller with the call.
+    /// @param amountHeld Taken from the subscription revenue the contract holds.
+    /// @dev The two are split because they are not the same money: one is an
+    ///      operator putting funds in, the other Krither spending what it
+    ///      earned. `amountSent` above what moved is a caller that sent more
+    ///      than it deposited, the surplus staying in the contract as revenue.
+    /// @dev Revenue arriving needs nothing here: `Subscribed` already marks
+    ///      every payment in.
+    event FundsDeposited(
+        string to,
+        address indexed from,
+        uint256 amountSent,
+        uint256 amountHeld
+    );
+
+    /// @notice Money leaving Krither, naming the pot it came out of.
+    /// @dev The EntryPoint logs its own withdrawals, but at its own address and
+    ///      for every paymaster on the chain at once. Re-emitting here keeps
+    ///      the three movements one stream, read from one contract.
+    event FundsWithdrawn(string from, address indexed to, uint256 amount);
 
     /// @notice EntryPoint the paymaster answers to.
     function entryPoint() external view returns (IEntryPoint);
@@ -69,8 +89,9 @@ interface IKritherPaymaster {
     /// @notice Gas budget the paymaster holds at the EntryPoint.
     function entryPointBalance() external view returns (uint256);
 
-    /// @notice Moves subscription revenue into the EntryPoint gas budget.
-    function depositToEntryPoint(uint256 amount) external;
+    /// @notice Funds the EntryPoint gas budget, out of what the caller sends,
+    ///         out of subscription revenue, or out of both.
+    function depositToEntryPoint(uint256 amount) external payable;
 
     function withdrawFromEntryPoint(
         address payable to,

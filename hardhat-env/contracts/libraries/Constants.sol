@@ -52,4 +52,21 @@ library Constants {
     /// @dev Offset of the `validUntil` field inside a packed validation
     ///      result, which sits just above the 20-byte authorizer.
     uint256 internal constant VALID_UNTIL_SHIFT = 160;
+
+    /// @dev Offset of the `validAfter` field, the six bytes above
+    ///      `validUntil`. Handing the EntryPoint a window is how the paymaster
+    ///      states a time condition: reading the clock during validation is a
+    ///      banned opcode, and a bundler drops the operation for it.
+    uint256 internal constant VALID_AFTER_SHIFT = 208;
+
+    /// @dev First byte of `paymasterAndData` past the paymaster address and
+    ///      the two gas limits, where an operation names the lane it is asking
+    ///      to be paid out of.
+    uint256 internal constant PAYMASTER_DATA_OFFSET = 52;
+
+    /// @dev Value that byte carries to ask for a free operation rather than a
+    ///      subscription's quota. The paymaster still holds the request to the
+    ///      window the lane is true in, so naming the wrong one costs an
+    ///      operation the bundler, never the gas budget.
+    bytes1 internal constant ONBOARDING_LANE = 0x01;
 }

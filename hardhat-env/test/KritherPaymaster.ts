@@ -27,6 +27,7 @@ import {
 	viem,
 } from "./helpers/fixtures.js";
 import {
+	ONBOARDING_LANE,
 	buildUserOp,
 	executeBatch,
 	executeCall,
@@ -48,6 +49,10 @@ const ACTUAL_FEE_PER_GAS = 1n;
 /** Validity windows ride in the 6 bytes above the authorizer address */
 const validUntilOf = (validationData: bigint) =>
 	(validationData >> 160n) & 0xffffffffffffn;
+
+/** And `validAfter` in the 6 above those */
+const validAfterOf = (validationData: bigint) =>
+	(validationData >> 208n) & 0xffffffffffffn;
 
 describe("KritherPaymaster - deployment", async function () {
 	it("answers to the EntryPoint it was wired to", async function () {
@@ -342,6 +347,64 @@ describe("KritherPaymaster - gas budget", async function () {
 		);
 	});
 
+	it("opens the budget out of the caller's own funds", async function () {
+		const { paymaster, admin } =
+			await networkHelpers.loadFixture(deployRealPaymaster);
+
+		await paymaster.write.depositToEntryPoint([PLAN_PRICE], {
+			account: admin.account,
+			value: PLAN_PRICE,
+		});
+
+		assert.equal(
+			await paymaster.read.entryPointBalance(),
+			PAYMASTER_DEPOSIT + PLAN_PRICE,
+		);
+	});
+
+	it("emits FundsDeposited splitting what was sent from what was held", async function () {
+		const { paymaster, admin } = await networkHelpers.loadFixture(
+			deploySponsoredAccount,
+		);
+
+		// half out of the caller's pocket, half out of a subscription already
+		// paid for, so both halves of the event carry a figure
+		await viem.assertions.emitWithArgs(
+			paymaster.write.depositToEntryPoint([PLAN_PRICE * 2n], {
+				account: admin.account,
+				value: PLAN_PRICE,
+			}),
+			paymaster,
+			"FundsDeposited",
+			[
+				"deposit",
+				(a: string) => a.toLowerCase() === admin.account.address.toLowerCase(),
+				PLAN_PRICE,
+				PLAN_PRICE,
+			],
+		);
+	});
+
+	it("reports a deposit taken entirely out of revenue as held", async function () {
+		const { paymaster, admin } = await networkHelpers.loadFixture(
+			deploySponsoredAccount,
+		);
+
+		await viem.assertions.emitWithArgs(
+			paymaster.write.depositToEntryPoint([PLAN_PRICE], {
+				account: admin.account,
+			}),
+			paymaster,
+			"FundsDeposited",
+			[
+				"deposit",
+				(a: string) => a.toLowerCase() === admin.account.address.toLowerCase(),
+				0n,
+				PLAN_PRICE,
+			],
+		);
+	});
+
 	it("refuses moving more revenue than it holds", async function () {
 		const { paymaster, admin } = await networkHelpers.loadFixture(
 			deploySponsoredAccount,
@@ -383,6 +446,26 @@ describe("KritherPaymaster - gas budget", async function () {
 		assert.equal(await paymaster.read.entryPointBalance(), 0n);
 	});
 
+	it("emits FundsWithdrawn naming the deposit it came out of", async function () {
+		const { paymaster, admin, other } =
+			await networkHelpers.loadFixture(deployRealPaymaster);
+
+		await viem.assertions.emitWithArgs(
+			paymaster.write.withdrawFromEntryPoint(
+				[other.account.address, PAYMASTER_DEPOSIT],
+				{ account: admin.account },
+			),
+			paymaster,
+			"FundsWithdrawn",
+			[
+				"deposit",
+				(a: string) =>
+					a.toLowerCase() === other.account.address.toLowerCase(),
+				PAYMASTER_DEPOSIT,
+			],
+		);
+	});
+
 	it("refuses a budget withdrawal from an account without DEFAULT_ADMIN_ROLE", async function () {
 		const { paymaster, producer1, other } =
 			await networkHelpers.loadFixture(deployRealPaymaster);
@@ -421,6 +504,26 @@ describe("KritherPaymaster - stake", async function () {
 		assert.equal(info.staked, true);
 		assert.equal(info.stake, PAYMASTER_STAKE);
 		assert.equal(info.unstakeDelaySec, UNSTAKE_DELAY);
+	});
+
+	it("emits FundsDeposited naming the stake it went into", async function () {
+		const { paymaster, admin } =
+			await networkHelpers.loadFixture(deployRealPaymaster);
+
+		await viem.assertions.emitWithArgs(
+			paymaster.write.addStake([UNSTAKE_DELAY], {
+				account: admin.account,
+				value: PAYMASTER_STAKE,
+			}),
+			paymaster,
+			"FundsDeposited",
+			[
+				"stake",
+				(a: string) => a.toLowerCase() === admin.account.address.toLowerCase(),
+				PAYMASTER_STAKE,
+				0n,
+			],
+		);
 	});
 
 	it("refuses a stake from an account without PAYMASTER_ROLE", async function () {
@@ -488,6 +591,30 @@ describe("KritherPaymaster - stake", async function () {
 		);
 	});
 
+	it("emits FundsWithdrawn carrying the stake the EntryPoint sent", async function () {
+		const { paymaster, admin, other } =
+			await networkHelpers.loadFixture(deployRealPaymaster);
+
+		await paymaster.write.unlockStake({ account: admin.account });
+		await networkHelpers.time.increase(UNSTAKE_DELAY + 1);
+
+		// the call carries no amount, so the event reports what the paymaster
+		// read back off the EntryPoint before emptying it
+		await viem.assertions.emitWithArgs(
+			paymaster.write.withdrawStake([other.account.address], {
+				account: admin.account,
+			}),
+			paymaster,
+			"FundsWithdrawn",
+			[
+				"stake",
+				(a: string) =>
+					a.toLowerCase() === other.account.address.toLowerCase(),
+				PAYMASTER_STAKE,
+			],
+		);
+	});
+
 	it("refuses a stake withdrawal from an account without DEFAULT_ADMIN_ROLE", async function () {
 		const { paymaster, admin, producer1, other } =
 			await networkHelpers.loadFixture(deployRealPaymaster);
@@ -520,7 +647,7 @@ describe("KritherPaymaster - revenue", async function () {
 		);
 	});
 
-	it("emits RevenueWithdrawn naming where it went", async function () {
+	it("emits FundsWithdrawn naming the revenue it came out of", async function () {
 		const { paymaster, admin, other } = await networkHelpers.loadFixture(
 			deploySponsoredAccount,
 		);
@@ -531,8 +658,9 @@ describe("KritherPaymaster - revenue", async function () {
 				{ account: admin.account },
 			),
 			paymaster,
-			"RevenueWithdrawn",
+			"FundsWithdrawn",
 			[
+				"revenue",
 				(a: string) =>
 					a.toLowerCase() === other.account.address.toLowerCase(),
 				PLAN_PRICE,
@@ -808,7 +936,7 @@ describe("KritherPaymaster - validating an operation", async function () {
 		);
 	});
 
-	it("refuses a subscription whose last window has closed", async function () {
+	it("hands the EntryPoint a closed window once the subscription has expired", async function () {
 		const { paymaster, entryPoint, registry, producer1 } =
 			await networkHelpers.loadFixture(deployMockedSubscriber);
 
@@ -819,19 +947,71 @@ describe("KritherPaymaster - validating an operation", async function () {
 			callData: executeCall(registry.address, 0n, "0x"),
 		});
 
-		await viem.assertions.revertWithCustomError(
-			entryPoint.write.validate([
-				paymaster.address,
-				userOp,
-				USER_OP_HASH,
-				MAX_COST_PER_OP,
-			]),
-			paymaster,
-			"SubscriptionExpired",
+		await entryPoint.write.validate([
+			paymaster.address,
+			userOp,
+			USER_OP_HASH,
+			MAX_COST_PER_OP,
+		]);
+
+		const [, , , , , expiresAt] = await paymaster.read.subscriptions([
+			producer1.account.address,
+		]);
+		const { timestamp } = await (
+			await viem.getPublicClient()
+		).getBlock();
+
+		// the paymaster cannot read the clock, so an expired subscription is
+		// refused by the window it hands back, not by a revert
+		assert.equal(
+			validUntilOf(await entryPoint.read.lastValidationData()),
+			expiresAt,
+		);
+		assert.equal(expiresAt < timestamp, true);
+	});
+
+	it("holds an account that has spent its quota until the window refills", async function () {
+		const { paymaster, entryPoint, registry, producer1 } =
+			await networkHelpers.loadFixture(deployMockedSingleOpSubscriber);
+
+		// a second window, so the quota has something left to refill against
+		await paymaster.write.subscribe([0], {
+			account: producer1.account,
+			value: PLAN_PRICE,
+		});
+
+		const userOp = buildUserOp({
+			sender: producer1.account.address,
+			callData: executeCall(registry.address, 0n, "0x"),
+		});
+
+		await entryPoint.write.sponsor([
+			paymaster.address,
+			userOp,
+			USER_OP_HASH,
+			MAX_COST_PER_OP,
+			OP_SUCCEEDED,
+			ACTUAL_GAS_COST,
+		]);
+
+		await entryPoint.write.validate([
+			paymaster.address,
+			userOp,
+			USER_OP_HASH,
+			MAX_COST_PER_OP,
+		]);
+
+		const [, , , , periodEnd] = await paymaster.read.subscriptions([
+			producer1.account.address,
+		]);
+
+		assert.equal(
+			validAfterOf(await entryPoint.read.lastValidationData()),
+			periodEnd,
 		);
 	});
 
-	it("refuses an account that has spent its quota", async function () {
+	it("refuses an account that has spent the quota of its last window", async function () {
 		const { paymaster, entryPoint, registry, producer1 } =
 			await networkHelpers.loadFixture(deployMockedSingleOpSubscriber);
 
@@ -1147,6 +1327,8 @@ describe("KritherPaymaster - onboarding", async function () {
 	) =>
 		buildUserOp({
 			sender,
+			paymaster,
+			paymasterData: ONBOARDING_LANE,
 			callData: executeCall(
 				paymaster,
 				PLAN_PRICE,
@@ -1488,13 +1670,50 @@ describe("KritherPaymaster - onboarding", async function () {
 		assert.equal((await entryPoint.read.lastContext()).length > 2, true);
 	});
 
-	it("charges quota, not a free operation, once a subscription is held", async function () {
+	it("holds a free operation asked for while a subscription still runs", async function () {
 		const { paymaster, entryPoint, producer1 } =
 			await networkHelpers.loadFixture(deployMockedSubscriber);
 
-		await entryPoint.write.sponsor([
+		await entryPoint.write.validate([
 			paymaster.address,
 			onboardingOp(producer1.account.address, paymaster.address),
+			USER_OP_HASH,
+			MAX_COST_PER_OP,
+		]);
+
+		const [, , , , , expiresAt] = await paymaster.read.subscriptions([
+			producer1.account.address,
+		]);
+
+		// the lane is the account's to ask for, but it only opens once the
+		// subscription it would replace has run out
+		assert.equal(
+			validAfterOf(await entryPoint.read.lastValidationData()),
+			expiresAt,
+		);
+	});
+
+	it("charges quota, not a free operation, on a renewal a subscriber pays for", async function () {
+		const { paymaster, entryPoint, producer1 } =
+			await networkHelpers.loadFixture(deployMockedSubscriber);
+
+		const renewal = buildUserOp({
+			sender: producer1.account.address,
+			paymaster: paymaster.address,
+			callData: executeCall(
+				paymaster.address,
+				PLAN_PRICE,
+				encodeFunctionData({
+					abi: paymaster.abi,
+					functionName: "subscribe",
+					args: [0],
+				}),
+			),
+		});
+
+		await entryPoint.write.sponsor([
+			paymaster.address,
+			renewal,
 			USER_OP_HASH,
 			MAX_COST_PER_OP,
 			OP_SUCCEEDED,
@@ -1608,6 +1827,8 @@ describe("KritherPaymaster - onboarding", async function () {
 
 		const userOp = buildUserOp({
 			sender: producer2.account.address,
+			paymaster: paymaster.address,
+			paymasterData: ONBOARDING_LANE,
 			callData: executeCall(
 				registry.address,
 				0n,
@@ -1919,6 +2140,7 @@ describe("KritherPaymaster - end to end", async function () {
 					}),
 				),
 				paymaster: paymaster.address,
+				paymasterData: ONBOARDING_LANE,
 			}),
 		);
 
@@ -1962,6 +2184,7 @@ describe("KritherPaymaster - end to end", async function () {
 						}),
 					),
 					paymaster: paymaster.address,
+					paymasterData: ONBOARDING_LANE,
 				}),
 			);
 
@@ -1984,6 +2207,45 @@ describe("KritherPaymaster - end to end", async function () {
 		assert.equal(
 			await publicClient.getBalance({ address: account.address }),
 			balanceBefore - PLAN_PRICE * 2n,
+		);
+	});
+
+	it("refuses a free operation while the plan it would replace still runs", async function () {
+		const { paymaster, entryPoint, account, producer1, other } =
+			await networkHelpers.loadFixture(deploySponsoredAccount);
+
+		await producer1.sendTransaction({
+			to: account.address,
+			value: PLAN_PRICE,
+		});
+
+		const userOp = await signUserOp(
+			entryPoint,
+			accountOwner,
+			buildUserOp({
+				sender: account.address,
+				nonce: await entryPoint.read.getNonce([account.address, 0n]),
+				callData: executeCall(
+					paymaster.address,
+					PLAN_PRICE,
+					encodeFunctionData({
+						abi: paymaster.abi,
+						functionName: "subscribe",
+						args: [0],
+					}),
+				),
+				paymaster: paymaster.address,
+				paymasterData: ONBOARDING_LANE,
+			}),
+		);
+
+		// the paymaster reads no clock, so it is the EntryPoint that holds the
+		// operation to the window the free lane opens in
+		await viem.assertions.revertWithCustomErrorWithArgs(
+			entryPoint.write.handleOps([[userOp], other.account.address]),
+			entryPoint,
+			"FailedOp",
+			[0n, "AA32 paymaster expired or not due"],
 		);
 	});
 

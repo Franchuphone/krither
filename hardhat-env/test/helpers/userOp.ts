@@ -48,6 +48,9 @@ const MAX_FEE = parseGwei("5");
 const packHalves = (high: bigint, low: bigint): Hex =>
 	concat([pad(toHex(high), { size: 16 }), pad(toHex(low), { size: 16 })]);
 
+/** The byte an operation carries to ask for a free operation */
+export const ONBOARDING_LANE: Hex = "0x01";
+
 /** paymaster ++ validation gas ++ postOp gas ++ paymaster-specific data */
 export const packPaymasterAndData = (paymaster: Address, data: Hex = "0x"): Hex =>
 	concat([

@@ -55,13 +55,12 @@ contract KritherPaymaster is
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Reads the targets out of the call an account is about to make and
-    ///      reports whether the operation is an account buying its first plan,
-    ///      naming which one.
+    ///      reports whether the operation buys a plan, naming which one.
     /// @dev A `subscribe(uint8)` call is 36 bytes, its argument padded into the
     ///      last word, so anything else is read as an ordinary sponsored call.
     function _readTargets(
         bytes calldata callData
-    ) private view returns (bool onboarding, uint8 planId) {
+    ) private view returns (bool subscribing, uint8 planId) {
         require(callData.length >= 4, CallShapeUnsupported());
         bytes4 selector = bytes4(callData[:4]);
 
@@ -72,14 +71,14 @@ contract KritherPaymaster is
             );
             require(sponsoredTargets[target], TargetNotAllowed());
 
-            onboarding =
+            subscribing =
                 target == address(this) &&
                 data.length == Constants.SUBSCRIBE_CALL_LENGTH &&
                 bytes4(data) == Constants.SUBSCRIBE_SELECTOR;
-            planId = onboarding
+            planId = subscribing
                 ? uint8(data[Constants.SUBSCRIBE_CALL_LENGTH - 1])
                 : 0;
-            return (onboarding, planId);
+            return (subscribing, planId);
         }
 
         if (selector == Constants.EXECUTE_BATCH_SELECTOR) {
@@ -96,11 +95,28 @@ contract KritherPaymaster is
         revert CallShapeUnsupported();
     }
 
+    /// @dev Reads which lane an operation asks to be paid out of. Nothing here
+    ///      is taken on trust: the lane only picks which set of terms the
+    ///      operation is held to, and each set carries the window it is true
+    ///      in, so an operation naming the wrong one is never included.
+    function _readLane(
+        bytes calldata paymasterAndData
+    ) private pure returns (bool onboarding) {
+        return
+            paymasterAndData.length > Constants.PAYMASTER_DATA_OFFSET &&
+            paymasterAndData[Constants.PAYMASTER_DATA_OFFSET] ==
+            Constants.ONBOARDING_LANE;
+    }
+
     /// @inheritdoc IPaymaster
     /// @dev Tightened to `view`, which ERC-4337 allows and bundlers want:
     ///      they drop a paymaster whose validation writes unless it is
     ///      whitelisted. Every allowance this contract keeps is settled in
     ///      `postOp`, so the compiler now holds that line.
+    /// @dev Not one branch here reads the clock. `TIMESTAMP` is banned during
+    ///      validation, so every condition the terms put on time is handed to
+    ///      the EntryPoint as the window the operation is valid in, and it is
+    ///      the EntryPoint that holds the operation to it.
     function validatePaymasterUserOp(
         PackedUserOperation calldata userOp,
         bytes32,
@@ -114,36 +130,52 @@ contract KritherPaymaster is
     {
         require(maxCost <= maxCostPerOp, CostTooHigh());
 
-        (bool onboarding, uint8 planId) = _readTargets(userOp.callData);
+        (bool subscribing, uint8 planId) = _readTargets(userOp.callData);
         Subscription storage subscription = _subscriptions[userOp.sender];
-        bool lapsed = subscription.expiresAt <= block.timestamp;
 
         /// @dev Free operations are what an accredited actor rides in on and
         ///      renews on, so they are gated on the accreditation the plan
         ///      sells against. Ungated, anyone could mint accounts and spend
         ///      the gas budget one free operation at a time.
+        /// @dev Opening the window at `expiresAt` is what keeps a running
+        ///      subscription out of this lane: until the last window it paid
+        ///      for has closed, the operation is not yet due and no bundler
+        ///      can include it.
         if (
-            onboarding &&
-            lapsed &&
+            subscribing &&
+            _readLane(userOp.paymasterAndData) &&
             freeOps[userOp.sender] < Constants.MAX_FREE_OPS
         ) {
             _requirePlanExists(planId);
             _requireAccredited(_plans[planId].role, userOp.sender);
-            return (abi.encode(userOp.sender, true), 0);
+            return (
+                abi.encode(userOp.sender, true),
+                uint256(subscription.expiresAt) << Constants.VALID_AFTER_SHIFT
+            );
         }
 
-        require(!lapsed, SubscriptionExpired());
+        require(subscription.expiresAt != 0, SubscriptionExpired());
         _requireAccredited(_plans[subscription.planId].role, userOp.sender);
 
-        uint32 used = subscription.periodEnd > block.timestamp
-            ? subscription.used
-            : 0;
-        require(used < subscription.quota, QuotaExhausted());
+        /// @dev A spent quota refills at `periodEnd`, so the operation is held
+        ///      until then rather than refused. It is only refused when the
+        ///      window it would wait for falls outside the subscription: past
+        ///      the last one there is nothing left to refill.
+        bool exhausted = subscription.used >= subscription.quota;
+        require(
+            !exhausted || subscription.periodEnd < subscription.expiresAt,
+            QuotaExhausted()
+        );
 
         context = abi.encode(userOp.sender, false);
         validationData =
             uint256(subscription.expiresAt) <<
             Constants.VALID_UNTIL_SHIFT;
+        if (exhausted) {
+            validationData |=
+                uint256(subscription.periodEnd) <<
+                Constants.VALID_AFTER_SHIFT;
+        }
     }
 
     /// @inheritdoc IPaymaster
@@ -262,15 +294,29 @@ contract KritherPaymaster is
         return entryPoint.balanceOf(address(this));
     }
 
+    /// @dev Payable because the contract holds nothing but what subscriptions
+    ///      paid it, and a paymaster with no subscribers yet has no revenue to
+    ///      move. `amount` is what reaches the EntryPoint, `msg.value` what the
+    ///      caller adds first, so the same function opens the budget and later
+    ///      tops it up out of what Krither earned.
     function depositToEntryPoint(
         uint256 amount
-    ) external whenNotPaused onlyRegistryRole(PAYMASTER_ROLE) {
+    ) external payable whenNotPaused onlyRegistryRole(PAYMASTER_ROLE) {
+        emit FundsDeposited(
+            "deposit",
+            msg.sender,
+            msg.value,
+            amount > msg.value ? amount - msg.value : 0
+        );
         entryPoint.depositTo{value: amount}(address(this));
     }
 
+    /// @dev Nothing held can go in here: the EntryPoint stakes what the call
+    ///      carries and the contract cannot add to it.
     function addStake(
         uint32 unstakeDelaySec
     ) external payable whenNotPaused onlyRegistryRole(PAYMASTER_ROLE) {
+        emit FundsDeposited("stake", msg.sender, msg.value, 0);
         entryPoint.addStake{value: msg.value}(unstakeDelaySec);
     }
 
@@ -297,9 +343,12 @@ contract KritherPaymaster is
         onlyRegistryRole(DEFAULT_ADMIN_ROLE)
         checkAddressZero(to)
     {
+        emit FundsWithdrawn("deposit", to, amount);
         entryPoint.withdrawTo(to, amount);
     }
 
+    /// @dev The EntryPoint sends the whole stake and takes no amount, so the
+    ///      figure the event reports is read back before it is emptied.
     function withdrawStake(
         address payable to
     )
@@ -308,6 +357,11 @@ contract KritherPaymaster is
         onlyRegistryRole(DEFAULT_ADMIN_ROLE)
         checkAddressZero(to)
     {
+        emit FundsWithdrawn(
+            "stake",
+            to,
+            entryPoint.getDepositInfo(address(this)).stake
+        );
         entryPoint.withdrawStake(to);
     }
 
@@ -320,7 +374,7 @@ contract KritherPaymaster is
         onlyRegistryRole(DEFAULT_ADMIN_ROLE)
         checkAddressZero(to)
     {
-        emit RevenueWithdrawn(to, amount);
+        emit FundsWithdrawn("revenue", to, amount);
         (bool sent, ) = to.call{value: amount}("");
         require(sent, WithdrawFailed());
     }
