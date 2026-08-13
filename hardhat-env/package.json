@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "type": "module",
   "packageManager": "pnpm@11.14.0",
+  "scripts": {
+    "test:quiet": "hardhat test 2>&1 | grep -E '✔|^\\s+[0-9]+\\) |passing|failing' | sed '/failing/q'"
+  },
   "devDependencies": {
+    "@account-abstraction/contracts": "^0.8.0",
     "@nomicfoundation/hardhat-ignition": "^3.1.8",
     "@nomicfoundation/hardhat-toolbox-viem": "^5.0.7",
     "@types/node": "^22.20.1",

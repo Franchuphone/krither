@@ -11,13 +11,62 @@ library Constants {
 
     /// @dev Retyping an identifier per contract risks a mismatch that no test
     ///      surfaces: the role simply resolves to an address nobody holds.
+    bytes32 internal constant DEFAULT_ADMIN_ROLE = 0x00;
     bytes32 internal constant PRODUCER_ROLE = keccak256("PRODUCER_ROLE");
     bytes32 internal constant RESELLER_ROLE = keccak256("RESELLER_ROLE");
     bytes32 internal constant CONSUMER_ROLE = keccak256("CONSUMER_ROLE");
     bytes32 internal constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 internal constant PAYMASTER_ROLE = keccak256("PAYMASTER_ROLE");
+    bytes32 internal constant USERS_ADMIN_ROLE = keccak256("USERS_ADMIN_ROLE");
 
     // TOKEN IDS
 
     /// @dev Width of the item index inside a packed ERC-1155 token id.
     uint256 internal constant LOT_ID_SHIFT = 128;
+
+    // ACCOUNT CALL SHAPES
+
+    /// @dev The two ways a reference ERC-4337 account forwards a call, and the
+    ///      only two the paymaster can read a target out of.
+    bytes4 internal constant EXECUTE_SELECTOR =
+        bytes4(keccak256("execute(address,uint256,bytes)"));
+    bytes4 internal constant EXECUTE_BATCH_SELECTOR =
+        bytes4(keccak256("executeBatch((address,uint256,bytes)[])"));
+
+    /// @dev Call an account may make before it pays for anything.
+    bytes4 internal constant SUBSCRIBE_SELECTOR =
+        bytes4(keccak256("subscribe(uint8)"));
+
+    /// @dev Selector plus the word its plan id is padded into, so the id sits
+    ///      in the final byte.
+    uint256 internal constant SUBSCRIBE_CALL_LENGTH = 36;
+
+    /// @dev Attempts at buying a plan an account may have sponsored while
+    ///      holding none. Only attempts that bought nothing are counted, and a
+    ///      purchase hands them all back, so the budget an account can spend
+    ///      without paying anything is capped at this many.
+    uint256 internal constant MAX_FREE_OPS = 3;
+
+    // USER OPERATIONS
+
+    /// @dev Offset of the `validUntil` field inside a packed validation
+    ///      result, which sits just above the 20-byte authorizer.
+    uint256 internal constant VALID_UNTIL_SHIFT = 160;
+
+    /// @dev Offset of the `validAfter` field, the six bytes above
+    ///      `validUntil`. Handing the EntryPoint a window is how the paymaster
+    ///      states a time condition: reading the clock during validation is a
+    ///      banned opcode, and a bundler drops the operation for it.
+    uint256 internal constant VALID_AFTER_SHIFT = 208;
+
+    /// @dev First byte of `paymasterAndData` past the paymaster address and
+    ///      the two gas limits, where an operation names the lane it is asking
+    ///      to be paid out of.
+    uint256 internal constant PAYMASTER_DATA_OFFSET = 52;
+
+    /// @dev Value that byte carries to ask for a free operation rather than a
+    ///      subscription's quota. The paymaster still holds the request to the
+    ///      window the lane is true in, so naming the wrong one costs an
+    ///      operation the bundler, never the gas budget.
+    bytes1 internal constant ONBOARDING_LANE = 0x01;
 }
