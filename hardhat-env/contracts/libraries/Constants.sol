@@ -16,6 +16,7 @@ library Constants {
     bytes32 internal constant RESELLER_ROLE = keccak256("RESELLER_ROLE");
     bytes32 internal constant CONSUMER_ROLE = keccak256("CONSUMER_ROLE");
     bytes32 internal constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 internal constant PAYMASTER_ROLE = keccak256("PAYMASTER_ROLE");
     bytes32 internal constant USERS_ADMIN_ROLE = keccak256("USERS_ADMIN_ROLE");
 
     // TOKEN IDS
@@ -32,13 +33,19 @@ library Constants {
     bytes4 internal constant EXECUTE_BATCH_SELECTOR =
         bytes4(keccak256("executeBatch((address,uint256,bytes)[])"));
 
-    /// @dev Call an account may make once before it pays for anything.
+    /// @dev Call an account may make before it pays for anything.
     bytes4 internal constant SUBSCRIBE_SELECTOR =
         bytes4(keccak256("subscribe(uint8)"));
 
     /// @dev Selector plus the word its plan id is padded into, so the id sits
     ///      in the final byte.
     uint256 internal constant SUBSCRIBE_CALL_LENGTH = 36;
+
+    /// @dev Attempts at buying a plan an account may have sponsored while
+    ///      holding none. Only attempts that bought nothing are counted, and a
+    ///      purchase hands them all back, so the budget an account can spend
+    ///      without paying anything is capped at this many.
+    uint256 internal constant MAX_FREE_OPS = 3;
 
     // USER OPERATIONS
 

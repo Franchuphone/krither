@@ -18,6 +18,9 @@ export const PLAN_PRICE = parseEther("0.01");
 export const MONTHLY_QUOTA = 1000;
 export const MONTHLY_PERIOD = 30 * 24 * 60 * 60;
 
+/** Mirrors `Constants.MAX_FREE_OPS` */
+export const MAX_FREE_OPS = 3;
+
 /** Sponsorship budget the paymaster runs on */
 export const MAX_COST_PER_OP = parseEther("0.01");
 export const PAYMASTER_DEPOSIT = parseEther("1");
@@ -299,6 +302,13 @@ export async function deployMockedPaymaster() {
 		[PRODUCER_ROLE, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD],
 		{ account: fixture.admin.account },
 	);
+
+	// running the sponsorship is its own accreditation, held here by `admin`
+	const PAYMASTER_ROLE = await paymaster.read.PAYMASTER_ROLE();
+	await fixture.registry.write.grantRole(
+		[PAYMASTER_ROLE, fixture.admin.account.address],
+		{ account: fixture.admin.account },
+	);
 	await paymaster.write.setMaxCostPerOp([MAX_COST_PER_OP], {
 		account: fixture.admin.account,
 	});
@@ -379,6 +389,13 @@ export async function deployRealPaymaster() {
 	const PRODUCER_ROLE = await fixture.registry.read.PRODUCER_ROLE();
 	await paymaster.write.addPlan(
 		[PRODUCER_ROLE, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD],
+		{ account: fixture.admin.account },
+	);
+
+	// running the sponsorship is its own accreditation, held here by `admin`
+	const PAYMASTER_ROLE = await paymaster.read.PAYMASTER_ROLE();
+	await fixture.registry.write.grantRole(
+		[PAYMASTER_ROLE, fixture.admin.account.address],
 		{ account: fixture.admin.account },
 	);
 	await paymaster.write.setMaxCostPerOp([MAX_COST_PER_OP], {

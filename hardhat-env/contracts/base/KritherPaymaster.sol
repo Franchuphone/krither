@@ -19,13 +19,18 @@ contract KritherPaymaster is
     IKritherPaymaster,
     IPaymaster
 {
+    /// @dev Sponsorship is its own job: the gas budget, the stake and the
+    ///      revenue are handled by whoever holds this, not by the registry
+    ///      admin that accredits producers and opens plans.
+    bytes32 public constant PAYMASTER_ROLE = Constants.PAYMASTER_ROLE;
+
     IEntryPoint public immutable entryPoint;
 
     uint256 public maxCostPerOp;
 
     mapping(address => bool) public sponsoredTargets;
 
-    mapping(address => bool) public onboardingUsed;
+    mapping(address => uint256) public freeOps;
 
     constructor(
         address registry_,
@@ -36,10 +41,18 @@ contract KritherPaymaster is
         sponsoredTargets[address(this)] = true;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                               MODIFIERS
+    //////////////////////////////////////////////////////////////*/
+
     modifier onlyEntryPoint() {
         require(msg.sender == address(entryPoint), NotEntryPoint());
         _;
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            USER OPERATIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @dev Reads the targets out of the call an account is about to make and
     ///      reports whether the operation is an account buying its first plan,
@@ -105,11 +118,15 @@ contract KritherPaymaster is
         Subscription storage subscription = _subscriptions[userOp.sender];
         bool lapsed = subscription.expiresAt <= block.timestamp;
 
-        /// @dev The free operation is what an accredited actor rides in on, so
-        ///      it is gated on the accreditation the plan sells against.
-        ///      Ungated, anyone could mint accounts and spend the gas budget
-        ///      one free operation at a time.
-        if (onboarding && lapsed && !onboardingUsed[userOp.sender]) {
+        /// @dev Free operations are what an accredited actor rides in on and
+        ///      renews on, so they are gated on the accreditation the plan
+        ///      sells against. Ungated, anyone could mint accounts and spend
+        ///      the gas budget one free operation at a time.
+        if (
+            onboarding &&
+            lapsed &&
+            freeOps[userOp.sender] < Constants.MAX_FREE_OPS
+        ) {
             _requirePlanExists(planId);
             _requireAccredited(_plans[planId].role, userOp.sender);
             return (abi.encode(userOp.sender, true), 0);
@@ -144,13 +161,31 @@ contract KritherPaymaster is
             (address, bool)
         );
 
+        Subscription storage subscription = _subscriptions[account];
+
+        /// @dev The plan is bought by the very call this settles, so a running
+        ///      subscription means the operation turned into revenue and costs
+        ///      the account none of its free ones. Anything else bought
+        ///      nothing and is charged against them.
         if (onboarding) {
-            onboardingUsed[account] = true;
-            emit OnboardingSponsored(account, actualGasCost);
+            if (subscription.expiresAt > block.timestamp) {
+                freeOps[account] = 0;
+                emit OnboardingSponsored(account, actualGasCost);
+            } else {
+                /// @dev Stopping at the cap for the reason quota stops at its
+                ///      own, one branch below: a bundle can validate two
+                ///      operations from one account against the same count,
+                ///      and counting past it would underflow what is left.
+                if (freeOps[account] < Constants.MAX_FREE_OPS) {
+                    freeOps[account] += 1;
+                }
+                uint256 remainingFreeOps = Constants.MAX_FREE_OPS -
+                    freeOps[account];
+                emit OnboardingFailed(account, actualGasCost, remainingFreeOps);
+            }
             return;
         }
 
-        Subscription storage subscription = _subscriptions[account];
         if (subscription.periodEnd > block.timestamp) {
             /// @dev A bundle may carry two operations from one account, both
             ///      validated against the same allowance before either
@@ -161,10 +196,15 @@ contract KritherPaymaster is
                 subscription.used += 1;
             }
         } else {
+            /// @dev A window belongs to the subscription paying for it, so it
+            ///      never outlives one. Left unclamped it can, and an account
+            ///      renewing inside the overhang carries in the quota a
+            ///      subscription it has already replaced had spent.
             subscription.used = 1;
-            subscription.periodEnd = uint64(
-                block.timestamp + subscription.period
-            );
+            uint64 periodEnd = uint64(block.timestamp + subscription.period);
+            subscription.periodEnd = periodEnd > subscription.expiresAt
+                ? subscription.expiresAt
+                : periodEnd;
         }
 
         emit OperationSponsored(
@@ -174,9 +214,29 @@ contract KritherPaymaster is
         );
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            FREE OPERATIONS
+    //////////////////////////////////////////////////////////////*/
+
+    function resetFreeOps(
+        address account
+    )
+        external
+        whenNotPaused
+        onlyRegistryRole(PAYMASTER_ROLE)
+        checkAddressZero(account)
+    {
+        freeOps[account] = 0;
+        emit FreeOpsReset(account);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                           SPONSORSHIP TERMS
+    //////////////////////////////////////////////////////////////*/
+
     function setMaxCostPerOp(
         uint256 newMaxCostPerOp
-    ) external whenNotPaused onlyRegistryRole(DEFAULT_ADMIN_ROLE) {
+    ) external whenNotPaused onlyRegistryRole(PAYMASTER_ROLE) {
         maxCostPerOp = newMaxCostPerOp;
         emit MaxCostPerOpSet(newMaxCostPerOp);
     }
@@ -187,12 +247,16 @@ contract KritherPaymaster is
     )
         external
         whenNotPaused
-        onlyRegistryRole(DEFAULT_ADMIN_ROLE)
+        onlyRegistryRole(PAYMASTER_ROLE)
         checkAddressZero(target)
     {
         sponsoredTargets[target] = allowed;
         emit SponsoredTargetSet(target, allowed);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                               GAS BUDGET
+    //////////////////////////////////////////////////////////////*/
 
     function entryPointBalance() external view returns (uint256) {
         return entryPoint.balanceOf(address(this));
@@ -200,10 +264,30 @@ contract KritherPaymaster is
 
     function depositToEntryPoint(
         uint256 amount
-    ) external whenNotPaused onlyRegistryRole(DEFAULT_ADMIN_ROLE) {
+    ) external whenNotPaused onlyRegistryRole(PAYMASTER_ROLE) {
         entryPoint.depositTo{value: amount}(address(this));
     }
 
+    function addStake(
+        uint32 unstakeDelaySec
+    ) external payable whenNotPaused onlyRegistryRole(PAYMASTER_ROLE) {
+        entryPoint.addStake{value: msg.value}(unstakeDelaySec);
+    }
+
+    function unlockStake()
+        external
+        whenNotPaused
+        onlyRegistryRole(PAYMASTER_ROLE)
+    {
+        entryPoint.unlockStake();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                WITHDRAWALS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Money leaving Krither answers to the registry admin, never to the
+    ///      role that merely runs the sponsorship day to day.
     function withdrawFromEntryPoint(
         address payable to,
         uint256 amount
@@ -214,20 +298,6 @@ contract KritherPaymaster is
         checkAddressZero(to)
     {
         entryPoint.withdrawTo(to, amount);
-    }
-
-    function addStake(
-        uint32 unstakeDelaySec
-    ) external payable whenNotPaused onlyRegistryRole(DEFAULT_ADMIN_ROLE) {
-        entryPoint.addStake{value: msg.value}(unstakeDelaySec);
-    }
-
-    function unlockStake()
-        external
-        whenNotPaused
-        onlyRegistryRole(DEFAULT_ADMIN_ROLE)
-    {
-        entryPoint.unlockStake();
     }
 
     function withdrawStake(

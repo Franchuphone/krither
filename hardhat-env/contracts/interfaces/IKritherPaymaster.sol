@@ -25,6 +25,14 @@ interface IKritherPaymaster {
 
     event OnboardingSponsored(address indexed account, uint256 actualGasCost);
 
+    event OnboardingFailed(
+        address indexed account,
+        uint256 actualGasCost,
+        uint256 remainingFreeOps
+    );
+
+    event FreeOpsReset(address indexed account);
+
     event RevenueWithdrawn(address indexed to, uint256 amount);
 
     /// @notice EntryPoint the paymaster answers to.
@@ -46,9 +54,17 @@ interface IKritherPaymaster {
     ///      are open from construction, anything else is a deliberate act.
     function setSponsoredTarget(address target, bool allowed) external;
 
-    /// @notice Whether an account has spent the one operation it gets before
-    ///         holding a subscription.
-    function onboardingUsed(address account) external view returns (bool);
+    /// @notice Operations an account has had sponsored while holding no
+    ///         subscription without any of them buying one.
+    /// @dev Reset the moment a purchase lands, so renewing costs an account
+    ///      nothing and only wasted attempts accumulate.
+    function freeOps(address account) external view returns (uint256);
+
+    /// @notice Hands an account the free operations it has spent back.
+    /// @dev The counter is what bounds the gas an account can spend without
+    ///      paying, so clearing it is deliberate: it is for an account whose
+    ///      attempts failed on Krither rather than on itself.
+    function resetFreeOps(address account) external;
 
     /// @notice Gas budget the paymaster holds at the EntryPoint.
     function entryPointBalance() external view returns (uint256);
