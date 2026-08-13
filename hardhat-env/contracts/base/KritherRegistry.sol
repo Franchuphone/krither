@@ -13,10 +13,10 @@ import {
 } from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-import {IKritherRegistry} from "./interfaces/IKritherRegistry.sol";
-import {KritherIds} from "./abstracts/KritherIds.sol";
-import {KritherRoles} from "./abstracts/KritherRoles.sol";
-import {LotId} from "./libraries/LotId.sol";
+import {IKritherRegistry} from "../interfaces/IKritherRegistry.sol";
+import {KritherIds} from "../abstracts/KritherIds.sol";
+import {KritherRoles} from "../abstracts/KritherRoles.sol";
+import {LotId} from "../libraries/LotId.sol";
 
 /// @notice On-chain provenance for small producers: a lot is one batch of
 ///         items, each item carrying its own ERC-1155 token id.
