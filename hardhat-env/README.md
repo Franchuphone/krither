@@ -40,12 +40,12 @@ sync.
 
 | File                                 | Role                                                                                |
 | ------------------------------------ | ----------------------------------------------------------------------------------- |
-| `KritherRegistry.sol`                | The deployable registry: lots, items, lifecycle, locators.                          |
+| `base/KritherRegistry.sol`           | The deployable registry: lots, items, lifecycle, locators.                          |
+| `base/KritherPaymaster.sol`          | The deployable paymaster: 4337 hooks, free ops, gas budget, withdrawals.            |
 | `abstracts/KritherRoles.sol`         | Roles, producer identity + reassignment, pause.                                     |
 | `abstracts/KritherIds.sol`           | Pure helpers exposing the packed-id scheme on the ABI.                              |
 | `abstracts/KritherSubscriptions.sol` | Plans, subscriptions, `subscribe`, pause - inherited by the paymaster.              |
 | `abstracts/Errors.sol`               | Shared input-guard modifiers.                                                       |
-| `base/KritherPaymaster.sol`          | The deployable paymaster: 4337 hooks, free ops, gas budget, withdrawals.            |
 | `libraries/Constants.sol`            | Every constant in the system. Nothing is redefined elsewhere.                       |
 | `libraries/LotId.sol`                | `pack` / `lot` / `index` bit-packing.                                               |
 | `interfaces/I*.sol`                  | Structs, events and external signatures. Read these first when generating types.    |
