@@ -11,6 +11,7 @@ interface IKritherRegistry {
     event LotCreated(
         uint256 indexed idLot,
         address indexed producer,
+        uint256 indexed ref,
         string cid,
         uint256[] quantities,
         uint256 createdAt
@@ -41,6 +42,12 @@ interface IKritherRegistry {
         view
         returns (address producer, uint96 itemCount, string memory cid);
 
+    /// @notice Krither lot id a producer's own reference points to.
+    function lotIds(
+        address producer,
+        uint256 ref
+    ) external view returns (uint256 idLot);
+
     /// @notice Number of lifecycle steps recorded against an item.
     function lifecycleChanges(uint256 idItem) external view returns (uint256);
 
@@ -52,7 +59,8 @@ interface IKritherRegistry {
     /// @notice Mints a lot as a single batch, one token id per item.
     function mintLot(
         uint256[] calldata quantities,
-        string calldata cid
+        string calldata cid,
+        uint256 ref
     ) external returns (uint256 idLot);
 
     /// @notice Records a lifecycle step against one item of a lot.

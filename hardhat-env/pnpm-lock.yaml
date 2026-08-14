@@ -18,9 +18,15 @@ importers:
       '@nomicfoundation/hardhat-ignition':
         specifier: ^3.1.8
         version: 3.1.8(@nomicfoundation/hardhat-verify@3.0.21(hardhat@3.10.0))(hardhat@3.10.0)
+      '@nomicfoundation/hardhat-keystore':
+        specifier: 3.0.12
+        version: 3.0.12(hardhat@3.10.0)
       '@nomicfoundation/hardhat-toolbox-viem':
         specifier: ^5.0.7
         version: 5.0.7(15624e3db1f568292884a830dcf08fca)
+      '@nomicfoundation/hardhat-verify':
+        specifier: 3.0.21
+        version: 3.0.21(hardhat@3.10.0)
       '@types/node':
         specifier: ^22.20.1
         version: 22.20.1

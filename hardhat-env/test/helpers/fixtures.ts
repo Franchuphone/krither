@@ -11,6 +11,10 @@ export const { viem, networkHelpers } = await network.create({
 export const CID = "bafkreialgaeseaweedharvest2026quiberon";
 export const NEW_CID = "bafkreiupdatedlifecyclemetadatadryingstep";
 
+/** A producer's own reference for a lot, unique to them */
+export const REF = 1n;
+export const NEW_REF = 2n;
+
 export const ARWEAVE_POINTER = "kX3jLm9QvRt2wYzB4nH7pC1sD8fG5hJ0kL6mN9oP2qR";
 
 /** Terms the admin opens the monthly producer plan with */
@@ -94,7 +98,7 @@ export async function deployAccredited() {
 export async function deployWithLot() {
 	const fixture = await deployAccredited();
 
-	await fixture.registry.write.mintLot([[500n], CID], {
+	await fixture.registry.write.mintLot([[500n], CID, REF], {
 		account: fixture.producer1.account,
 	});
 
@@ -105,7 +109,7 @@ export async function deployWithLot() {
 export async function deployWithBatchLot() {
 	const fixture = await deployAccredited();
 
-	await fixture.registry.write.mintLot([[100n, 40n, 10n], CID], {
+	await fixture.registry.write.mintLot([[100n, 40n, 10n], CID, REF], {
 		account: fixture.producer1.account,
 	});
 
@@ -126,10 +130,10 @@ export async function deployTwoLots() {
 		{ account: fixture.admin.account },
 	);
 
-	await fixture.registry.write.mintLot([[500n], CID], {
+	await fixture.registry.write.mintLot([[500n], CID, REF], {
 		account: fixture.producer1.account,
 	});
-	await fixture.registry.write.mintLot([[1n], NEW_CID], {
+	await fixture.registry.write.mintLot([[1n], NEW_CID, REF], {
 		account: fixture.producer2.account,
 	});
 
@@ -154,10 +158,10 @@ export async function deployTwoBatchLots() {
 		{ account: fixture.admin.account },
 	);
 
-	await fixture.registry.write.mintLot([[100n, 40n, 10n], CID], {
+	await fixture.registry.write.mintLot([[100n, 40n, 10n], CID, REF], {
 		account: fixture.producer1.account,
 	});
-	await fixture.registry.write.mintLot([[7n, 3n], NEW_CID], {
+	await fixture.registry.write.mintLot([[7n, 3n], NEW_CID, REF], {
 		account: fixture.producer2.account,
 	});
 
@@ -265,7 +269,7 @@ export async function deploySubscriptionsForPause() {
 export async function deploySoldUniqueLot() {
 	const fixture = await deployAccredited();
 
-	await fixture.registry.write.mintLot([[1n], CID], {
+	await fixture.registry.write.mintLot([[1n], CID, REF], {
 		account: fixture.producer1.account,
 	});
 	await fixture.registry.write.safeTransferFrom(

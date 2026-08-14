@@ -7,6 +7,8 @@ import {
 	ARWEAVE_POINTER,
 	CID,
 	NEW_CID,
+	NEW_REF,
+	REF,
 	anyTimestamp,
 	deployAccredited,
 	deployRegistry,
@@ -79,7 +81,9 @@ describe("KritherRegistry - lot creation", async function () {
 			await networkHelpers.loadFixture(deployAccredited);
 
 		await viem.assertions.revertWithCustomError(
-			registry.write.mintLot([[500n], CID], { account: other.account }),
+			registry.write.mintLot([[500n], CID, REF], {
+				account: other.account,
+			}),
 			registry,
 			"AccessControlUnauthorizedAccount",
 		);
@@ -90,7 +94,7 @@ describe("KritherRegistry - lot creation", async function () {
 			await networkHelpers.loadFixture(deployAccredited);
 
 		await viem.assertions.emitWithArgs(
-			registry.write.mintLot([[500n], CID], {
+			registry.write.mintLot([[500n], CID, REF], {
 				account: producer1.account,
 			}),
 			registry,
@@ -100,6 +104,7 @@ describe("KritherRegistry - lot creation", async function () {
 				(producer: string) =>
 					producer.toLowerCase() ===
 					producer1.account.address.toLowerCase(),
+				REF,
 				CID,
 				[500n],
 				anyTimestamp,
@@ -120,12 +125,55 @@ describe("KritherRegistry - lot creation", async function () {
 		);
 	});
 
+	it("points the producer's own reference at the Krither lot id", async function () {
+		const { registry, producer1 } =
+			await networkHelpers.loadFixture(deployAccredited);
+
+		await registry.write.mintLot([[500n], CID, REF], {
+			account: producer1.account,
+		});
+
+		assert.equal(
+			await registry.read.lotIds([producer1.account.address, REF]),
+			1n,
+		);
+	});
+
+	it("keeps the same reference apart for two producers", async function () {
+		const { registry, producer1, producer2 } =
+			await networkHelpers.loadFixture(deployTwoLots);
+
+		assert.equal(
+			await registry.read.lotIds([producer1.account.address, REF]),
+			1n,
+		);
+		assert.equal(
+			await registry.read.lotIds([producer2.account.address, REF]),
+			2n,
+		);
+	});
+
+	it("rejects a reference the producer has already used", async function () {
+		const { registry, producer1 } =
+			await networkHelpers.loadFixture(deployWithLot);
+
+		await viem.assertions.revertWithCustomError(
+			registry.write.mintLot([[1n], NEW_CID, REF], {
+				account: producer1.account,
+			}),
+			registry,
+			"LotAlreadyExists",
+		);
+	});
+
 	it("rejects a mint with no items at all", async function () {
 		const { registry, producer1 } =
 			await networkHelpers.loadFixture(deployAccredited);
 
 		await viem.assertions.revertWithCustomError(
-			registry.write.mintLot([[], CID], { account: producer1.account }),
+			registry.write.mintLot([[], CID, REF], {
+				account: producer1.account,
+			}),
 			registry,
 			"InputNumberNull",
 		);
@@ -136,7 +184,7 @@ describe("KritherRegistry - lot creation", async function () {
 			await networkHelpers.loadFixture(deployAccredited);
 
 		await viem.assertions.revertWithCustomError(
-			registry.write.mintLot([[100n, 0n, 10n], CID], {
+			registry.write.mintLot([[100n, 0n, 10n], CID, REF], {
 				account: producer1.account,
 			}),
 			registry,
@@ -149,7 +197,7 @@ describe("KritherRegistry - lot creation", async function () {
 			await networkHelpers.loadFixture(deployAccredited);
 
 		await viem.assertions.revertWithCustomError(
-			registry.write.mintLot([[500n], ""], {
+			registry.write.mintLot([[500n], "", REF], {
 				account: producer1.account,
 			}),
 			registry,
@@ -162,13 +210,13 @@ describe("KritherRegistry - lot creation", async function () {
 			await networkHelpers.loadFixture(deployWithLot);
 
 		await assert.rejects(
-			registry.write.mintLot([[0n], CID], {
+			registry.write.mintLot([[0n], CID, NEW_REF], {
 				account: producer1.account,
 			}),
 		);
 
 		// the next successful mint still takes lot 2
-		await registry.write.mintLot([[1n], NEW_CID], {
+		await registry.write.mintLot([[1n], NEW_CID, NEW_REF], {
 			account: producer1.account,
 		});
 		const [lot2Producer] = await registry.read.lots([2n]);
@@ -213,7 +261,7 @@ describe("KritherRegistry - batched items under one lot", async function () {
 			await networkHelpers.loadFixture(deployAccredited);
 
 		await viem.assertions.emit(
-			registry.write.mintLot([[100n, 40n, 10n], CID], {
+			registry.write.mintLot([[100n, 40n, 10n], CID, REF], {
 				account: producer1.account,
 			}),
 			registry,

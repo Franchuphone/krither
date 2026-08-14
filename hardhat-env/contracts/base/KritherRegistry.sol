@@ -34,6 +34,7 @@ contract KritherRegistry is
     uint128 private _nextIdLot;
 
     mapping(uint256 => Lot) public lots;
+    mapping(address => mapping(uint256 => uint256)) public lotIds;
     mapping(uint256 => uint256) public lifecycleChanges;
 
     constructor(address admin) ERC1155("") {
@@ -60,6 +61,17 @@ contract KritherRegistry is
         require(index < lot.itemCount, ItemNotFound());
 
         return string.concat(lot.cid, "/", index.toString(), ".json");
+    }
+
+    /// @dev `ERC1155Pausable` only hooks `_update`, so approvals keep writing
+    ///      while the breaker is on. Nothing an operator holds can move until
+    ///      the pause lifts, but the grant itself is state, and a paused
+    ///      contract writes none.
+    function setApprovalForAll(
+        address operator,
+        bool approved
+    ) public override whenNotPaused {
+        super.setApprovalForAll(operator, approved);
     }
 
     function _update(
@@ -99,13 +111,28 @@ contract KritherRegistry is
 
     // PRODUCT LIFECYCLE
 
+    /// @dev Held apart from `mintLot` so the ids never take a slot in its
+    ///      frame, which the emitted lot no longer leaves room for.
+    function _packIds(
+        uint256 idLot,
+        uint256[] calldata quantities
+    ) private pure returns (uint256[] memory ids) {
+        ids = new uint256[](quantities.length);
+        for (uint256 i = 0; i < ids.length; ++i) {
+            require(quantities[i] > 0, InputNumberNull());
+            ids[i] = idLot.pack(i);
+        }
+    }
+
     /// @notice Mints a lot as a single batch, one token id per item.
     /// @param quantities Units minted for each item, in directory order.
     /// @param cid Metadata directory CID holding one `<index>.json` per item.
+    /// @param ref Producer's own identifier for the lot, unique to them.
     /// @return idLot Identifier of the created lot.
     function mintLot(
         uint256[] calldata quantities,
-        string calldata cid
+        string calldata cid,
+        uint256 ref
     )
         external
         whenNotPaused
@@ -114,17 +141,21 @@ contract KritherRegistry is
         checkEmptyString(cid)
         returns (uint256 idLot)
     {
+        require(lotIds[msg.sender][ref] == 0, LotAlreadyExists());
+
         idLot = ++_nextIdLot;
         lots[idLot] = Lot(msg.sender, uint96(quantities.length), cid);
+        lotIds[msg.sender][ref] = idLot;
 
-        uint256[] memory ids = new uint256[](quantities.length);
-        for (uint256 i = 0; i < ids.length; ++i) {
-            require(quantities[i] > 0, InputNumberNull());
-            ids[i] = idLot.pack(i);
-        }
-
-        _mintBatch(msg.sender, ids, quantities, "");
-        emit LotCreated(idLot, msg.sender, cid, quantities, block.timestamp);
+        _mintBatch(msg.sender, _packIds(idLot, quantities), quantities, "");
+        emit LotCreated(
+            idLot,
+            msg.sender,
+            ref,
+            cid,
+            quantities,
+            block.timestamp
+        );
     }
 
     /// @notice Records a lifecycle step against one item of a lot.

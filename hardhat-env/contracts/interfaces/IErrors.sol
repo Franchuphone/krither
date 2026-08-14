@@ -9,6 +9,7 @@ interface IErrors {
     error NotHolder();
     error NotProducer();
     error LotNotFound();
+    error LotAlreadyExists();
     error ItemNotFound();
     error AlreadyProducer();
     error NotEntryPoint();

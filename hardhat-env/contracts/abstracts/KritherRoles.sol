@@ -4,6 +4,10 @@ pragma solidity 0.8.31;
 import {
     AccessControlEnumerable
 } from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {
+    IAccessControl
+} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {IKritherRoles} from "../interfaces/IKritherRoles.sol";
@@ -40,6 +44,17 @@ abstract contract KritherRoles is
             producerById[id] = account;
         }
         return granted;
+    }
+
+    /// @dev Accreditation is what the paymaster reads to decide who it pays
+    ///      for, so dropping one's own role is a state change like any other
+    ///      and the breaker holds it. Leaving it open would let an account walk
+    ///      out of its own accreditation while an incident is being contained.
+    function renounceRole(
+        bytes32 role,
+        address callerConfirmation
+    ) public override(AccessControl, IAccessControl) whenNotPaused {
+        super.renounceRole(role, callerConfirmation);
     }
 
     function pause() external onlyRole(PAUSER_ROLE) {
