@@ -1,7 +1,7 @@
 ## 1. Deployment topology
 
-Two deployed contracts, nothing else. No factory, no proxy, no per-product
-contract.
+Two Krither contracts plus the reference account factory. No proxy, no
+per-product contract.
 
 ```
 KritherRegistry              KritherPaymaster
@@ -15,18 +15,35 @@ KritherRegistry              KritherPaymaster
                                       ^
                                       |
                              SimpleAccount-style smart accounts (users)
+                                      ^
+                                      |
+                             KritherAccountFactory
+                             - SimpleAccountFactory, unmodified
+                             - counterfactual addresses, deployed by initCode
 ```
 
-Deploy order:
+`ignition/modules/Krither.ts` covers steps 1 to 3 and nothing more:
 
-1. `KritherRegistry(admin)` - `admin` gets `DEFAULT_ADMIN_ROLE`.
-2. `KritherPaymaster(registry, entryPoint)` - immutable wiring, and it
+1. `KritherRegistry(admin)` - `admin` gets `DEFAULT_ADMIN_ROLE`. The module
+   passes a fixed address, not the deployer.
+2. `KritherAccountFactory(entryPoint)` - the reference `SimpleAccountFactory`.
+   Its constructor calls `entryPoint.senderCreator()`, so it can only be
+   deployed on a chain that has the EntryPoint.
+3. `KritherPaymaster(registry, entryPoint)` - immutable wiring, and it
    whitelists the registry + itself as sponsored targets in the constructor.
-3. Registry admin grants `PAYMASTER_ROLE` to whoever operates the sponsorship.
-4. That operator calls `setMaxCostPerOp(...)` (it is **0** at deploy, so the
+
+```bash
+pnpm hardhat ignition deploy ignition/modules/Krither.ts --network sepolia
+```
+
+Everything below is a separate admin operation, deliberately left out of the
+module because none of its values are settled:
+
+4. Registry admin grants `PAYMASTER_ROLE` to whoever operates the sponsorship.
+5. That operator calls `setMaxCostPerOp(...)` (it is **0** at deploy, so the
    paymaster sponsors nothing until this is set), `addStake(delay)` with value,
    and funds the EntryPoint deposit.
-5. Registry admin calls `addPlan(PRODUCER_ROLE, price, quota, period)` to open
+6. Registry admin calls `addPlan(PRODUCER_ROLE, price, quota, period)` to open
    the producer plan as plan id `0`.
 
 **Key architectural fact:** the paymaster holds no roles of its own. Every
@@ -42,6 +59,7 @@ sync.
 | ------------------------------------ | ----------------------------------------------------------------------------------- |
 | `base/KritherRegistry.sol`           | The deployable registry: lots, items, lifecycle, locators.                          |
 | `base/KritherPaymaster.sol`          | The deployable paymaster: 4337 hooks, free ops, gas budget, withdrawals.            |
+| `base/KritherAccountFactory.sol`     | `SimpleAccountFactory` v0.8, unmodified. Empty subclass so Hardhat emits its artifact. |
 | `abstracts/KritherRoles.sol`         | Roles, producer identity + reassignment, pause.                                     |
 | `abstracts/KritherIds.sol`           | Pure helpers exposing the packed-id scheme on the ABI.                              |
 | `abstracts/KritherSubscriptions.sol` | Plans, subscriptions, `subscribe`, pause - inherited by the paymaster.              |
@@ -146,16 +164,28 @@ address. The producer's EOA signing key is never the accredited address.
 
 | Function                                                           | Access                 | Guards                                                                          | Emits                                                              |
 | ------------------------------------------------------------------ | ---------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `mintLot(uint256[] quantities, string cid) -> uint256 idLot`       | `PRODUCER_ROLE`        | not paused; `quantities.length > 0`; every `quantities[i] > 0`; `cid` non-empty | `LotCreated(idLot, producer, cid, quantities, createdAt)`          |
+| `mintLot(uint256[] quantities, string cid, uint256 ref) -> uint256 idLot` | `PRODUCER_ROLE`  | not paused; `quantities.length > 0`; every `quantities[i] > 0`; `cid` non-empty; `ref` unused by the caller | `LotCreated(idLot, producer, ref, cid, quantities, createdAt)`     |
 | `addLifecycleChange(uint256 idItem, string cid)`                   | any holder of `idItem` | not paused; `cid` non-empty; `balanceOf(sender, idItem) != 0`                   | `LifecycleChanged(idItem, idLot, quantity, owner, cid, changedAt)` |
 | `addLocator(uint256 idLot, string service, string pointer)`        | `DEFAULT_ADMIN_ROLE`   | not paused; lot exists; both strings non-empty                                  | `LocatorAdded(idLot, keccak(service), service, pointer, addedAt)`  |
 | `reassignProducer(address old, address new)`                       | `DEFAULT_ADMIN_ROLE`   | not paused; `new != 0`; `old != new`; `old` is producer; `new` is not           | `ProducerReassigned(old, new, changedAt)`                          |
 | `pause()` / `unpause()`                                            | `PAUSER_ROLE`          | -                                                                               | `Paused` / `Unpaused`                                              |
-| `grantRole` / `revokeRole` / `renounceRole`                        | role admin             | standard OZ                                                                     | `RoleGranted` / `RoleRevoked`                                      |
+| `grantRole` / `revokeRole`                                         | role admin             | standard OZ, **not** blocked while paused                                       | `RoleGranted` / `RoleRevoked`                                      |
+| `renounceRole(bytes32 role, address callerConfirmation)`           | the account itself     | not paused; `callerConfirmation == msg.sender`                                  | `RoleRevoked`                                                      |
 | `safeTransferFrom` / `safeBatchTransferFrom` / `setApprovalForAll` | ERC-1155 standard      | **blocked while paused**                                                        | `TransferSingle` / `TransferBatch` / `ApprovalForAll`              |
 
 `mintLot` mints the whole batch to `msg.sender` in one `_mintBatch`. The
 producer holds every unit until they transfer.
+
+`ref` is the producer's **own** identifier for the lot, their internal batch
+number rather than a Krither one. The lot id stays the sequential counter; the
+ref is recorded in `lotIds[producer][ref]`, which resolves it back to that id,
+and is emitted indexed on `LotCreated`. It must be unused by that caller, so a
+producer cannot overwrite the pointer to an earlier lot: reusing one reverts
+`LotAlreadyExists`. Two producers may hold the same ref without clashing.
+
+The mapping keys on the producer's **address**, not the producer id, so it does
+not follow a wallet rotation: after `reassignProducer`, refs written by the old
+address stay under it and the new address starts empty.
 
 `addLocator` writes **no storage** - it is an event-only anchor for an
 alternative storage backend (Arweave, etc.). To read locators the frontend must
@@ -341,8 +371,15 @@ validatePaymasterUserOp
 Two independent circuit breakers, both driven by registry `PAUSER_ROLE`.
 
 **Registry paused:** `mintLot`, `addLifecycleChange`, `addLocator`,
-`reassignProducer` and **every ERC-1155 transfer** revert. Reads are
-unaffected, so public provenance pages keep working.
+`reassignProducer`, `renounceRole`, `setApprovalForAll` and **every ERC-1155
+transfer** revert. Reads are unaffected, so public provenance pages keep
+working.
+
+`grantRole` and `revokeRole` are the exception, and stay open on purpose: the
+paymaster reads accreditation live from the registry, so revoking a role is how
+a compromised account is cut off from sponsorship, and the breakers are
+independent. `renounceRole` is closed because it is the account acting on
+itself, which is not a lever incident response needs.
 
 **Paymaster paused:** `validatePaymasterUserOp` reverts - all gasless traffic
 stops. `subscribe`, `addPlan`, `setPlan`, `resetFreeOps` and every treasury
@@ -358,7 +395,7 @@ anyone paying their own gas.
 
 | Event                                                              | Contract  | Use in the frontend                                                               |
 | ------------------------------------------------------------------ | --------- | --------------------------------------------------------------------------------- |
-| `LotCreated(idLot, producer, cid, quantities, createdAt)`          | Registry  | The producer's lot list; the public catalogue. Indexed on `idLot` and `producer`. |
+| `LotCreated(idLot, producer, ref, cid, quantities, createdAt)`     | Registry  | The producer's lot list; the public catalogue. Indexed on `idLot`, `producer` and `ref`. |
 | `LifecycleChanged(idItem, idLot, quantity, owner, cid, changedAt)` | Registry  | The provenance timeline of an item. Indexed on `idItem`, `idLot`, `owner`.        |
 | `LocatorAdded(idLot, serviceKey, service, pointer, addedAt)`       | Registry  | Alternative storage pointers - **event-only, no storage to read**.                |
 | `ProducerReassigned(old, new, changedAt)`                          | Registry  | Wallet-rotation history.                                                          |
@@ -389,9 +426,15 @@ from block 0.
 The producer ends up controlling an **ERC-4337 smart account**, not an EOA. The
 account address is what gets accredited and what holds the tokens.
 
-_Open decision: no account factory is chosen or deployed in this repo. Tests use
-`SimpleAccount` v0.8 constructed directly. The frontend needs a factory address
-plus a bundler endpoint before any of this runs on Sepolia._
+The account is built by `KritherAccountFactory`, the reference
+`SimpleAccountFactory` v0.8. Its `createAccount` is callable only by the
+EntryPoint's `SenderCreator`, so accounts are **counterfactual**: the address is
+read off-chain with `getAddress(owner, salt)` and the account itself is deployed
+by the `initCode` of its first user operation. An address can therefore be
+accredited and funded before any code exists at it.
+
+_Still open: no bundler endpoint is chosen. Tests construct `SimpleAccount`
+directly rather than through the factory._
 
 ### Beat 3 - Accreditation request
 
@@ -439,13 +482,15 @@ account.execute(
 	encodeFunctionData({
 		abi,
 		functionName: "mintLot",
-		args: [quantities, cid],
+		args: [quantities, cid, ref],
 	}),
 );
 ```
 
 Consumes one quota unit. `LotCreated` carries the new `idLot`; item ids are
-`itemId(idLot, i)` for `i` in `0..quantities.length-1`.
+`itemId(idLot, i)` for `i` in `0..quantities.length-1`. `ref` is the producer's
+own batch number, which they can look back up with `lotIds(producer, ref)` or by
+filtering `LotCreated` on it.
 
 **The CID is frozen forever.** The UI must make the review step before minting
 feel final, because there is no update path - a correction can only be recorded
@@ -572,15 +617,16 @@ constants anywhere else in the codebase, and none should be added.
 
 Things a frontend implementer will hit and that are **not** resolved on-chain:
 
-- **No account factory / bundler chosen.** Tests construct `SimpleAccount`
-  directly. Sepolia needs a real factory address, a bundler URL, and a decision
-  on whether accounts are counterfactual (deployed via `initCode` on the first
-  op) or deployed eagerly.
+- **No bundler chosen.** The factory is settled (`KritherAccountFactory`,
+  counterfactual accounts), but Sepolia still needs a bundler URL. Tests
+  construct `SimpleAccount` directly rather than through the factory.
 - **Frontend contract wiring does not exist yet.** `next-env/src/constants/` has
   no ABI files; `.env.example` only has `NEXT_PUBLIC_REGISTRY_ADDRESS` /
   `_DEPLOYED_BLOCK`. A paymaster address + deploy block env var is still needed.
-- **No deployment module.** `ignition/modules/` only contains the scaffold
-  `Counter.ts`.
+- **The deployment module deploys only.** `ignition/modules/Krither.ts` stops
+  after the three contracts. `PAYMASTER_ROLE`, `maxCostPerOp`, the stake, the
+  EntryPoint deposit and the plans stay manual admin operations, so a fresh
+  deployment sponsors nothing and sells nothing until they are run.
 - **`RESELLER_ROLE` / `CONSUMER_ROLE` have no contract logic** beyond being
   grantable and sellable as a plan's `role`.
 - **`subscribe` requires exact payment with no refund**, so the UI must read

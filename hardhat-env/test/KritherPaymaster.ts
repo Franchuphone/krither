@@ -12,6 +12,7 @@ import {
 	PAYMASTER_DEPOSIT,
 	PAYMASTER_STAKE,
 	PLAN_PRICE,
+	REF,
 	UNSTAKE_DELAY,
 	accountOwner,
 	deployMockedForPause,
@@ -726,7 +727,7 @@ describe("KritherPaymaster - validating an operation", async function () {
 				encodeFunctionData({
 					abi: registry.abi,
 					functionName: "mintLot",
-					args: [[500n], CID],
+					args: [[500n], CID, REF],
 				}),
 			),
 		});
@@ -753,7 +754,7 @@ describe("KritherPaymaster - validating an operation", async function () {
 				encodeFunctionData({
 					abi: registry.abi,
 					functionName: "mintLot",
-					args: [[500n], CID],
+					args: [[500n], CID, REF],
 				}),
 			),
 		});
@@ -782,7 +783,7 @@ describe("KritherPaymaster - validating an operation", async function () {
 		const mint = encodeFunctionData({
 			abi: registry.abi,
 			functionName: "mintLot",
-			args: [[500n], CID],
+			args: [[500n], CID, REF],
 		});
 		const userOp = buildUserOp({
 			sender: producer1.account.address,
@@ -851,7 +852,7 @@ describe("KritherPaymaster - validating an operation", async function () {
 		const mint = encodeFunctionData({
 			abi: registry.abi,
 			functionName: "mintLot",
-			args: [[500n], CID],
+			args: [[500n], CID, REF],
 		});
 		const userOp = buildUserOp({
 			sender: producer1.account.address,
@@ -1835,7 +1836,7 @@ describe("KritherPaymaster - onboarding", async function () {
 				encodeFunctionData({
 					abi: registry.abi,
 					functionName: "mintLot",
-					args: [[500n], CID],
+					args: [[500n], CID, REF],
 				}),
 			),
 		});
@@ -2039,7 +2040,7 @@ describe("KritherPaymaster - end to end", async function () {
 					encodeFunctionData({
 						abi: registry.abi,
 						functionName: "mintLot",
-						args: [[500n], CID],
+						args: [[500n], CID, REF],
 					}),
 				),
 				paymaster: paymaster.address,
@@ -2074,7 +2075,7 @@ describe("KritherPaymaster - end to end", async function () {
 					encodeFunctionData({
 						abi: registry.abi,
 						functionName: "mintLot",
-						args: [[500n], CID],
+						args: [[500n], CID, REF],
 					}),
 				),
 				paymaster: paymaster.address,
@@ -2105,7 +2106,7 @@ describe("KritherPaymaster - end to end", async function () {
 					encodeFunctionData({
 						abi: registry.abi,
 						functionName: "mintLot",
-						args: [[500n], CID],
+						args: [[500n], CID, REF],
 					}),
 				),
 				paymaster: paymaster.address,
@@ -2265,7 +2266,7 @@ describe("KritherPaymaster - end to end", async function () {
 					encodeFunctionData({
 						abi: registry.abi,
 						functionName: "mintLot",
-						args: [[500n], CID],
+						args: [[500n], CID, REF],
 					}),
 				),
 				paymaster: paymaster.address,

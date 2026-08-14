@@ -5,6 +5,7 @@ import {
 	ARWEAVE_POINTER,
 	CID,
 	NEW_CID,
+	NEW_REF,
 	deployAccredited,
 	deployForPause,
 	deployRegistry,
@@ -210,7 +211,7 @@ describe("KritherRoles - pause (SecOps)", async function () {
 		await registry.write.pause({ account: pauser.account });
 
 		await viem.assertions.revertWithCustomError(
-			registry.write.mintLot([[500n], CID], {
+			registry.write.mintLot([[500n], CID, NEW_REF], {
 				account: producer1.account,
 			}),
 			registry,
@@ -237,6 +238,78 @@ describe("KritherRoles - pause (SecOps)", async function () {
 			),
 			registry,
 			"EnforcedPause",
+		);
+	});
+
+	it("freezes approvals while paused", async function () {
+		const { registry, pauser, producer1, other } =
+			await networkHelpers.loadFixture(deployForPause);
+
+		await registry.write.pause({ account: pauser.account });
+
+		await viem.assertions.revertWithCustomError(
+			registry.write.setApprovalForAll([other.account.address, true], {
+				account: producer1.account,
+			}),
+			registry,
+			"EnforcedPause",
+		);
+	});
+
+	it("resumes approvals after unpause", async function () {
+		const { registry, pauser, producer1, other } =
+			await networkHelpers.loadFixture(deployForPause);
+
+		await registry.write.pause({ account: pauser.account });
+		await registry.write.unpause({ account: pauser.account });
+		await registry.write.setApprovalForAll([other.account.address, true], {
+			account: producer1.account,
+		});
+
+		assert.equal(
+			await registry.read.isApprovedForAll([
+				producer1.account.address,
+				other.account.address,
+			]),
+			true,
+		);
+	});
+
+	it("freezes renouncing a role while paused", async function () {
+		const { registry, pauser, producer1 } =
+			await networkHelpers.loadFixture(deployForPause);
+		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
+
+		await registry.write.pause({ account: pauser.account });
+
+		await viem.assertions.revertWithCustomError(
+			registry.write.renounceRole(
+				[PRODUCER_ROLE, producer1.account.address],
+				{ account: producer1.account },
+			),
+			registry,
+			"EnforcedPause",
+		);
+	});
+
+	it("resumes renouncing a role after unpause", async function () {
+		const { registry, pauser, producer1 } =
+			await networkHelpers.loadFixture(deployForPause);
+		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
+
+		await registry.write.pause({ account: pauser.account });
+		await registry.write.unpause({ account: pauser.account });
+		await registry.write.renounceRole(
+			[PRODUCER_ROLE, producer1.account.address],
+			{ account: producer1.account },
+		);
+
+		assert.equal(
+			await registry.read.hasRole([
+				PRODUCER_ROLE,
+				producer1.account.address,
+			]),
+			false,
 		);
 	});
 
@@ -294,7 +367,7 @@ describe("KritherRoles - pause (SecOps)", async function () {
 		await registry.write.unpause({ account: pauser.account });
 
 		await viem.assertions.emit(
-			registry.write.mintLot([[500n], CID], {
+			registry.write.mintLot([[500n], CID, NEW_REF], {
 				account: producer1.account,
 			}),
 			registry,
@@ -348,7 +421,7 @@ describe("KritherRoles - producer reassignment", async function () {
 		]);
 
 		// producer1 already holds lot #1; mint a second lot from the same producer
-		await registry.write.mintLot([[1n], NEW_CID], {
+		await registry.write.mintLot([[1n], NEW_CID, NEW_REF], {
 			account: producer1.account,
 		});
 
