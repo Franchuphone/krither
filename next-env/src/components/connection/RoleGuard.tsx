@@ -1,35 +1,48 @@
 "use client";
 
-import { createContext, useContext, useEffect, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { createContext, useContext, type ReactNode } from "react";
 import { useConnection, useReadContract } from "wagmi";
 import LoadingAlert from "@/components/reusable/LoadingAlert";
 import { registryABI } from "@/lib/registry";
-import { DEFAULT_ADMIN_ROLE } from "@/lib/roles";
+import {
+	DEFAULT_ADMIN_ROLE,
+	PAUSER_ROLE,
+	PAYMASTER_ROLE,
+	PRODUCER_ROLE,
+} from "@/lib/roles";
 
-type RegistryContext = {
-	registryAddress: `0x${string}`;
-	isAdmin: boolean;
-	adminLoading: boolean;
+export type RolesContext = {
+	hasRole?: boolean;
+	isAdmin?: boolean;
+	isProducer?: boolean;
+	isPauser?: boolean;
+	isPaymaster?: boolean;
 };
 
-const RegistryContext = createContext<RegistryContext | null>(null);
+const RolesContext = createContext<RolesContext | null>(null);
 
-export function useRegistryContext() {
-	const role = useContext(RegistryContext);
+export function useRolesContext() {
+	const role = useContext(RolesContext);
 	if (!role)
 		throw new Error(
-			"useRegistryContext must be used inside a RoleGuard route",
+			"useRolesContext must be used inside a RoleGuard route",
 		);
 	return role;
 }
 
 export default function RoleGuard({ children }: { children: ReactNode }) {
 	const { address: connected } = useConnection();
-	const router = useRouter();
 
 	const registryAddress = process.env
 		.NEXT_PUBLIC_REGISTRY_PRODUCTION_ADDRESS as `0x${string}` | undefined;
+	const paymasterAddress = process.env
+		.NEXT_PUBLIC_PAYMASTER_PRODUCTION_ADDRESS as `0x${string}` | undefined;
+
+	if (!registryAddress || !paymasterAddress) {
+		throw new Error(
+			"Missing registry or paymaster address in environment variables",
+		);
+	}
 
 	const { data: isAdmin, isLoading: adminLoading } = useReadContract({
 		address: registryAddress,
@@ -39,12 +52,29 @@ export default function RoleGuard({ children }: { children: ReactNode }) {
 		query: { enabled: !!registryAddress && !!connected },
 	});
 
-	// const { data: owner, isLoading: ownerLoading } = useReadContract({
-	// 	address: registryAddress,
-	// 	abi: registryABI,
-	// 	functionName: "owner",
-	// 	query: { enabled: !!registryAddress },
-	// });
+	const { data: isProducer, isLoading: producerLoading } = useReadContract({
+		address: registryAddress,
+		abi: registryABI,
+		functionName: "hasRole",
+		args: [PRODUCER_ROLE, connected as `0x${string}`],
+		query: { enabled: !!registryAddress && !!connected },
+	});
+
+	const { data: isPauser, isLoading: pauserLoading } = useReadContract({
+		address: registryAddress,
+		abi: registryABI,
+		functionName: "hasRole",
+		args: [PAUSER_ROLE, connected as `0x${string}`],
+		query: { enabled: !!registryAddress && !!connected },
+	});
+
+	const { data: isPaymaster, isLoading: paymasterLoading } = useReadContract({
+		address: registryAddress,
+		abi: registryABI,
+		functionName: "hasRole",
+		args: [PAYMASTER_ROLE, connected as `0x${string}`],
+		query: { enabled: !!registryAddress && !!connected },
+	});
 
 	// const { isSuccess: isVoter, isLoading: voterLoading } = useReadContract({
 	// 	address: registryAddress,
@@ -55,27 +85,29 @@ export default function RoleGuard({ children }: { children: ReactNode }) {
 	// 	query: { enabled: !!registryAddress && !!connected, retry: false },
 	// });
 
-	const hasRole = isAdmin;
-	const isResolving = !connected || adminLoading;
-
-	useEffect(() => {
-		if (!isResolving && !hasRole) {
-			router.replace("/dashboard/unregistered");
-		}
-	}, [connected, isResolving, hasRole, router]);
+	const hasRole = isAdmin || isProducer || isPauser || isPaymaster;
+	const isResolving =
+		!connected ||
+		adminLoading ||
+		producerLoading ||
+		pauserLoading ||
+		paymasterLoading;
 
 	if (isResolving) {
 		return <LoadingAlert text="Checking access…" />;
 	}
 
-	// Reaching here means reads succeeded, so registryAddress is defined.
-	if (!hasRole || !registryAddress) return null;
-
 	return (
-		<RegistryContext.Provider
-			value={{ registryAddress, isAdmin, adminLoading }}
+		<RolesContext.Provider
+			value={{
+				hasRole,
+				isAdmin,
+				isProducer,
+				isPauser,
+				isPaymaster,
+			}}
 		>
 			{children}
-		</RegistryContext.Provider>
+		</RolesContext.Provider>
 	);
 }

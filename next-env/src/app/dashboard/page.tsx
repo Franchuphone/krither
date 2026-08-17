@@ -1,17 +1,27 @@
-import RoleGuard from "@/components/connection/RoleGuard";
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useRolesContext } from "@/components/connection/RoleGuard";
+import Unregistered from "@/components/dashboards/Unregistered";
+import LoadingAlert from "@/components/reusable/LoadingAlert";
+import { areaHref, unlockedAreas } from "@/lib/dashboard";
+
 
 export default function DashboardPage() {
-	return (
-		<RoleGuard>
-			<main className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
-				<h1 className="text-4xl font-bold tracking-tight text-foreground">
-					Dashboard
-				</h1>
-				<p className="max-w-md text-lg text-muted-foreground">
-					You&apos;re connected. The Krither supply-chain dashboard
-					will live here.
-				</p>
-			</main>
-		</RoleGuard>
-	);
+	const roles = useRolesContext();
+	const router = useRouter();
+	const firstArea = unlockedAreas(roles)[0];
+
+	useEffect(() => {
+		if (firstArea) {
+			router.replace(areaHref(firstArea));
+		}
+	}, [firstArea, router]);
+
+	if (!roles.hasRole) {
+		return <Unregistered />;
+	}
+
+	return <LoadingAlert text="Opening your dashboard…" />;
 }
