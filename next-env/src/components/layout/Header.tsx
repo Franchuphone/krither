@@ -20,7 +20,7 @@ const Header = () => {
 						width={552}
 						height={488}
 						priority
-						className="h-9 w-auto"
+						className="h-12 w-auto sm:h-14 dark:brightness-[2.6]"
 					/>
 				</Link>
 				<div className="flex items-center gap-3">

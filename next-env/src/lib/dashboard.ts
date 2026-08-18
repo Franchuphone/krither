@@ -14,25 +14,25 @@ export const DASHBOARD_AREAS: DashboardArea[] = [
 	{
 		segment: "admin",
 		label: "Admin",
-		description: "Manage accreditations and platform roles.",
+		description: "Gérer les accréditations et les rôles de la plateforme.",
 		flag: "isAdmin",
 	},
 	{
 		segment: "producer",
-		label: "Producer",
-		description: "Create and track your product lots.",
+		label: "Producteur",
+		description: "Créer et suivre vos lots de produits.",
 		flag: "isProducer",
 	},
 	{
 		segment: "pauser",
 		label: "Pauser",
-		description: "Freeze and resume platform operations.",
+		description: "Suspendre et relancer les opérations de la plateforme.",
 		flag: "isPauser",
 	},
 	{
 		segment: "paymaster",
 		label: "Paymaster",
-		description: "Fund and monitor gas sponsorship.",
+		description: "Approvisionner et surveiller le sponsoring du gas.",
 		flag: "isPaymaster",
 	},
 ];

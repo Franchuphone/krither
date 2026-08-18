@@ -161,7 +161,7 @@ const WriteCallCard = ({
 	useEffect(() => {
 		if (!writeData) return;
 		if (isConfirming) {
-			toast.loading("Transaction is being processed", { id: writeData });
+			toast.loading("Transaction en cours de traitement", { id: writeData });
 		} else if (isSuccess && status === "success") {
 			toast.success(successMessage, { id: writeData });
 			// Reset the form after a confirmed write (reaction to the tx event).
@@ -170,7 +170,7 @@ const WriteCallCard = ({
 			// Refetch all reads so the UI reflects the new on-chain state.
 			queryClient.invalidateQueries();
 		} else if (error) {
-			toast.error(error.message ?? "Transaction aborted", { id: writeData });
+			toast.error(error.message ?? "Transaction interrompue", { id: writeData });
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [writeData, isConfirming, isSuccess, error, status]);
@@ -270,7 +270,7 @@ const WriteCallCard = ({
 										disabled={disabled || busy}
 									>
 										<SelectTrigger id={id} className="w-full">
-											<SelectValue placeholder={field.placeholder ?? "Select"} />
+											<SelectValue placeholder={field.placeholder ?? "Sélectionner"} />
 										</SelectTrigger>
 										<SelectContent>
 											{field.options.map((option) => (

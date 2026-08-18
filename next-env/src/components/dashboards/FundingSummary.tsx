@@ -33,9 +33,9 @@ const FundingSummary = () => {
 	return (
 		<div className="grid w-full gap-4 sm:grid-cols-2">
 			<StatCard
-				label="EntryPoint deposit"
+				label="Dépôt EntryPoint"
 				amount={depositInfo?.deposit}
-				hint="Pays for sponsored operations."
+				hint="Finance les opérations sponsorisées."
 				icon={Fuel}
 			/>
 			<StatCard
@@ -43,8 +43,8 @@ const FundingSummary = () => {
 				amount={depositInfo?.stake}
 				hint={
 					depositInfo?.staked
-						? "Locked, the paymaster can be used."
-						: "Unlocked, withdrawal is open."
+						? "Verrouillé, le paymaster est utilisable."
+						: "Déverrouillé, le retrait est ouvert."
 				}
 				icon={Lock}
 			/>

@@ -94,7 +94,7 @@ export default function RoleGuard({ children }: { children: ReactNode }) {
 		paymasterLoading;
 
 	if (isResolving) {
-		return <LoadingAlert text="Checking access…" />;
+		return <LoadingAlert text="Vérification des accès…" />;
 	}
 
 	return (

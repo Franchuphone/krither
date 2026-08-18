@@ -15,49 +15,49 @@ import Layout from "@/components/layout/Layout";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+	variable: "--font-geist-sans",
+	subsets: ["latin"],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+	variable: "--font-geist-mono",
+	subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Krither — Blockchain supply-chain tracking",
-  description:
-    "Transparent, tamper-proof, blockchain based provenance for small and mid-sized food producers, artisans and makers.",
+	title: "Krither, la traçabilité blockchain de vos produits",
+	description:
+		"Une provenance transparente et infalsifiable sur la blockchain, construit pour les producteurs, artisans et créateurs",
 };
 
 export default function RootLayout({
-  children,
+	children,
 }: Readonly<{
-  children: React.ReactNode;
+	children: React.ReactNode;
 }>) {
-  return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-      className={cn(
-        "h-full",
-        "antialiased",
-        geistSans.variable,
-        geistMono.variable,
-        "font-sans",
-        inter.variable,
-      )}
-    >
-      <body className="min-h-full flex flex-col">
-        <ThemeProvider>
-          <AppKitProvider>
-            <Layout>
-              <ConnectionGuard>{children}</ConnectionGuard>
-            </Layout>
-          </AppKitProvider>
-        </ThemeProvider>
-        <Toaster />
-      </body>
-    </html>
-  );
+	return (
+		<html
+			lang="fr"
+			suppressHydrationWarning
+			className={cn(
+				"h-full",
+				"antialiased",
+				geistSans.variable,
+				geistMono.variable,
+				"font-sans",
+				inter.variable,
+			)}
+		>
+			<body className="min-h-full flex flex-col">
+				<ThemeProvider>
+					<AppKitProvider>
+						<Layout>
+							<ConnectionGuard>{children}</ConnectionGuard>
+						</Layout>
+					</AppKitProvider>
+				</ThemeProvider>
+				<Toaster />
+			</body>
+		</html>
+	);
 }

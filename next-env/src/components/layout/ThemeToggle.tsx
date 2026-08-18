@@ -18,7 +18,7 @@ const ThemeToggle = () => {
       <Button
         variant="ghost"
         size="icon-lg"
-        aria-label="Toggle theme"
+        aria-label="Changer de thème"
         disabled
       />
     );
@@ -30,7 +30,7 @@ const ThemeToggle = () => {
     <Button
       variant="ghost"
       size="icon-lg"
-      aria-label="Toggle theme"
+      aria-label="Changer de thème"
       onClick={() => setTheme(isDark ? "light" : "dark")}
     >
       {isDark ? <SunIcon /> : <MoonIcon />}
