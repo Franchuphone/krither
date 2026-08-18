@@ -21,7 +21,7 @@ pnpm per workspace. Compile Solidity through Hardhat (aarch64 — no standalone 
 Imported from the `voting-dapp/next-env` reference. Key files:
 
 - `src/app/AppKitProvider.tsx` — module-scope wallet setup. One `WagmiAdapter`
-  (`ssr: true`, `http()` from `NEXT_PUBLIC_RPC_SEPOLIA`) + a single
+  (`ssr: true`, `http()` pointed at the `/api/rpc` proxy) + a single
   `createAppKit(...)`. Network is **Sepolia**. Nests `WagmiProvider` +
   `QueryClientProvider`.
 - `src/app/ThemeProvider.tsx` — `next-themes`, `attribute="class"`, system default.
@@ -65,9 +65,10 @@ Primary is teal/cyan (`oklch(0.52 0.105 223…)`). Always use tokens
 ## Env vars (`next-env/.env.local`, git-ignored; `.env.example` committed)
 
 - `NEXT_PUBLIC_PROJECT_ID` — Reown AppKit project id.
-- `NEXT_PUBLIC_RPC_SEPOLIA` — Sepolia RPC.
+- `RPC_SEPOLIA` — Sepolia RPC. Server-only: the browser talks to the
+  `src/app/api/rpc` route, which forwards to it, so the key stays off the client.
 - `NEXT_PUBLIC_APP_URL` — wallet-metadata origin.
-- `NEXT_PUBLIC_ETHERSCAN_API_KEY` — Etherscan API.
+- `ETHERSCAN_API_KEY` — Etherscan API. Server-only, use it from a route handler.
 - `NEXT_PUBLIC_REGISTRY_ADDRESS` / `NEXT_PUBLIC_REGISTRY_DEPLOYED_BLOCK` —
   contract address + deploy block (bounds event-log scans). Never hardcode
   addresses; read them from env.

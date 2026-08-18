@@ -34,8 +34,8 @@ type LetterBeat = {
 type Beat = { kind: "hero" } | LetterBeat | { kind: "final" };
 
 const NAME = "KRITHER";
-const CONTACT_EMAIL = "franchuphone@etik.com";
-const CONTACT_SUBJECT = "Contact Krither";
+const CONTACT_EMAIL = "NoMail@ForTheMoment.com";
+const CONTACT_SUBJECT = "À propos de Krither";
 
 /** Scroll distance (in vh) spent moving from one beat to the next. */
 const GAP_VH = 90;
