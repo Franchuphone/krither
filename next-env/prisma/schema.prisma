@@ -1,0 +1,116 @@
+// The datasource url lives in prisma.config.ts, not here (Prisma 7).
+
+generator client {
+    provider     = "prisma-client"
+    output       = "../src/generated/prisma"
+    moduleFormat = "esm"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+model Contact {
+    id        String   @id @default(uuid())
+    name      String
+    email     String
+    subject   String?
+    message   String
+    createdAt DateTime @default(now())
+
+    @@index([createdAt])
+}
+
+enum AccreditationStatus {
+    PENDING
+    APPROVED
+    REJECTED
+}
+
+model Producer {
+    id String @id @default(uuid())
+
+    /// Assigned on chain at accreditation, so null while pending. Survives
+    /// reassignProducer, which the address does not.
+    registryId BigInt? @unique
+
+    /// Wallet that filed the request, not necessarily the current one.
+    /// After accreditation resolve through producerById(registryId).
+    account String @unique
+
+    status AccreditationStatus @default(PENDING)
+
+    companyName String
+    legalForm   String
+    /// First 9 digits are the SIREN, hence no separate field.
+    siret       String @unique
+    apeCode     String
+
+    representativeName String
+    email              String
+    phone              String
+
+    /// Siege social.
+    street     String
+    postalCode String
+    city       String
+    country    String @default("FR")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    lots Lot[]
+
+    @@index([status])
+}
+
+enum LotStatus {
+    DRAFT
+    MINTED
+}
+
+model Lot {
+    id String @id @default(uuid())
+
+    producer   Producer @relation(fields: [producerId], references: [id])
+    producerId String
+
+    status LotStatus @default(DRAFT)
+
+    /// The producer own id for the lot
+    ref BigInt
+
+    name        String
+    description String?
+
+    /// Set when the lot is pinned, never updated after: the uri is frozen at mint.
+    cid String?
+
+    idLot  BigInt? @unique
+    txHash String? @unique
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    items LotItem[]
+
+    @@unique([producerId, ref])
+    @@index([status])
+}
+
+model LotItem {
+    id String @id @default(uuid())
+
+    lot   Lot    @relation(fields: [lotId], references: [id], onDelete: Cascade)
+    lotId String
+
+    /// Fixes the token id `(idLot << 128) | index`, so it never changes.
+    index Int
+
+    name        String
+    description String?
+
+    quantity Int
+
+    @@unique([lotId, index])
+}
