@@ -1,7 +1,7 @@
 import React from "react";
 
 const Producer = () => {
-	return <div>Producer</div>;
+	return <div>Producteur</div>;
 };
 
 export default Producer;

@@ -25,9 +25,9 @@ const paymasterAddress = process.env
 
 const roleField = {
 	name: "role",
-	label: "Role",
+	label: "Statut",
 	type: "bytes32",
-	placeholder: "Pick a role",
+	placeholder: "Choisir un statut",
 	options: ROLE_OPTIONS,
 } as const;
 
@@ -36,83 +36,83 @@ const Admin = () => {
 		<div className="flex w-full max-w-3xl flex-col gap-8 text-left">
 			<FundingSummary />
 
-			<Section title="Accreditation">
+			<Section title="Gestion des comptes">
 				<WriteCallCard
 					address={registryAddress}
 					abi={registryABI}
 					functionName="grantRole"
-					title="Grant a role"
-					description="Accredits an account. Granting Producer also assigns it a producer id."
+					title="Ajouter une accréditation"
+					description="Autorise un compte à utiliser la plateforme avec un statut donné"
 					icon={UserPlus}
 					fields={[
 						roleField,
 						{
 							name: "account",
-							label: "Account",
+							label: "Compte",
 							type: "address",
 							placeholder: "0x…",
 						},
 					]}
-					submitLabel="Grant"
-					successMessage="Role granted"
+					submitLabel="Attribuer"
+					successMessage="Statut attribué"
 				/>
 				<WriteCallCard
 					address={registryAddress}
 					abi={registryABI}
 					functionName="revokeRole"
-					title="Revoke a role"
-					description="Withdraws an accreditation. The paymaster stops sponsoring the account."
+					title="Retirer une accréditation"
+					description="Retire un compte de la plateforme  en révoquant son statut"
 					icon={UserMinus}
 					fields={[
 						roleField,
 						{
 							name: "account",
-							label: "Account",
+							label: "Compte",
 							type: "address",
 							placeholder: "0x…",
 						},
 					]}
-					submitLabel="Revoke"
-					successMessage="Role revoked"
+					submitLabel="Révoquer"
+					successMessage="Statut révoqué"
 				/>
 				<WriteCallCard
 					address={registryAddress}
 					abi={registryABI}
 					functionName="reassignProducer"
-					title="Reassign a producer"
-					description="Moves a producer id to a new wallet. Past lots keep pointing at the same producer."
+					title="Changer le wallet d'un producteur"
+					description="Transfère un identifiant de producteur vers un nouveau wallet"
 					icon={ArrowLeftRight}
 					fields={[
 						{
 							name: "oldAddress",
-							label: "Current wallet",
+							label: "Wallet actuel",
 							type: "address",
 							placeholder: "0x…",
 						},
 						{
 							name: "newAddress",
-							label: "New wallet",
+							label: "Nouveau wallet",
 							type: "address",
 							placeholder: "0x…",
 						},
 					]}
-					submitLabel="Reassign"
-					successMessage="Producer reassigned"
+					submitLabel="Réassigner"
+					successMessage="Producteur réassigné"
 				/>
 			</Section>
 
-			<Section title="Lots">
+			<Section title="Ancrage des documents offchain">
 				<WriteCallCard
 					address={registryAddress}
 					abi={registryABI}
 					functionName="addLocator"
-					title="Add a locator"
-					description="Anchors an alternative storage pointer for a lot alongside its CID."
+					title="Ajouter un localisateur de fichiers"
+					description="Ancre un pointeur de stockage alternatif pour un lot, en complément de son CID IPFS"
 					icon={Link2}
 					fields={[
 						{
 							name: "idLot",
-							label: "Lot id",
+							label: "Identifiant du lot",
 							type: "uint",
 							placeholder: "1",
 						},
@@ -124,94 +124,94 @@ const Admin = () => {
 						},
 						{
 							name: "pointer",
-							label: "Pointer",
+							label: "Pointeur",
 							type: "string",
-							placeholder: "Transaction id, URL…",
+							placeholder: "Identifiant de transaction, URL…",
 						},
 					]}
-					submitLabel="Anchor"
-					successMessage="Locator anchored"
+					submitLabel="Ancrer"
+					successMessage="Localisateur ancré"
 				/>
 			</Section>
 
-			<Section title="Subscription plans">
+			<Section title="Formules d'abonnement">
 				<WriteCallCard
 					address={paymasterAddress}
 					abi={paymasterABI}
 					functionName="addPlan"
-					title="Add a plan"
-					description="Creates a sponsorship plan for one role. Quota is operations per period."
+					title="Créer une formule"
+					description="Crée une formule de sponsoring pour un statut. Le quota correspond au nombre d'opérations par période"
 					icon={BadgePlus}
 					fields={[
 						roleField,
 						{
 							name: "price",
-							label: "Price (ETH)",
+							label: "Prix (ETH)",
 							type: "ether",
 							placeholder: "0.01",
 						},
 						{
 							name: "quota",
-							label: "Quota (ops)",
+							label: "Quota (opérations)",
 							type: "uint",
 							placeholder: "100",
 						},
 						{
 							name: "period",
-							label: "Period (seconds)",
+							label: "Période (secondes)",
 							type: "uint",
 							placeholder: "2592000",
 						},
 					]}
-					submitLabel="Create plan"
-					successMessage="Plan created"
+					submitLabel="Créer la formule"
+					successMessage="Formule créée"
 				/>
 				<WriteCallCard
 					address={paymasterAddress}
 					abi={paymasterABI}
 					functionName="setPlan"
-					title="Update a plan"
-					description="Reprices an existing plan or takes it off sale. Its role cannot change."
+					title="Modifier une formule"
+					description="Change le tarif d'une formule existante ou la retire de la vente"
 					icon={SlidersHorizontal}
 					fields={[
 						{
 							name: "planId",
-							label: "Plan id",
+							label: "Identifiant de formule",
 							type: "uint",
 							placeholder: "0",
 						},
 						{
 							name: "price",
-							label: "Price (ETH)",
+							label: "Prix (ETH)",
 							type: "ether",
 							placeholder: "0.01",
 						},
 						{
 							name: "quota",
-							label: "Quota (ops)",
+							label: "Quota (opérations)",
 							type: "uint",
 							placeholder: "100",
 						},
 						{
 							name: "period",
-							label: "Period (seconds)",
+							label: "Période (secondes)",
 							type: "uint",
 							placeholder: "2592000",
 						},
-						{ name: "enabled", label: "On sale", type: "bool" },
+						{ name: "enabled", label: "En vente", type: "bool" },
 					]}
-					submitLabel="Update plan"
-					successMessage="Plan updated"
+					submitLabel="Modifier la formule"
+					successMessage="Formule modifiée"
 				/>
 			</Section>
 
-			<Section title="Treasury">
+			<Section title="Trésorerie">
 				<WriteCallCard
 					address={paymasterAddress}
 					abi={paymasterABI}
 					functionName="withdrawRevenue"
-					title="Withdraw revenue"
-					description="Sends what subscriptions paid the paymaster out of the contract."
+					title="Retrait des fonds"
+					description="Transfère vers un wallet les revenus liés aux abonnements"
 					icon={Coins}
 					fields={[
 						{
@@ -222,21 +222,21 @@ const Admin = () => {
 						},
 						{
 							name: "amount",
-							label: "Amount (ETH)",
+							label: "Montant (ETH)",
 							type: "ether",
 							placeholder: "0.1",
 						},
 					]}
-					submitLabel="Withdraw"
-					successMessage="Revenue withdrawn"
+					submitLabel="Retirer"
+					successMessage="Revenus retirés"
 					danger
 				/>
 				<WriteCallCard
 					address={paymasterAddress}
 					abi={paymasterABI}
 					functionName="withdrawFromEntryPoint"
-					title="Withdraw deposit"
-					description="Pulls gas deposit back from the EntryPoint. Sponsorship stops once it is empty."
+					title="Retrait du dépôt"
+					description="Récupère le dépôt de gas auprès de l'EntryPoint. Le sponsoring s'arrête dès qu'il est vide."
 					icon={HandCoins}
 					fields={[
 						{
@@ -247,21 +247,21 @@ const Admin = () => {
 						},
 						{
 							name: "amount",
-							label: "Amount (ETH)",
+							label: "Montant (ETH)",
 							type: "ether",
 							placeholder: "0.1",
 						},
 					]}
-					submitLabel="Withdraw"
-					successMessage="Deposit withdrawn"
+					submitLabel="Retirer"
+					successMessage="Dépôt retiré"
 					danger
 				/>
 				<WriteCallCard
 					address={paymasterAddress}
 					abi={paymasterABI}
 					functionName="withdrawStake"
-					title="Withdraw stake"
-					description="Sends the whole stake out. It must have been unlocked and the delay elapsed."
+					title="Retrait du stake"
+					description="Récupère la totalité du stake. Il doit avoir été déverrouillé par le gestionnaire du paymaster et le délai écoulé."
 					icon={PiggyBank}
 					fields={[
 						{
@@ -271,8 +271,8 @@ const Admin = () => {
 							placeholder: "0x…",
 						},
 					]}
-					submitLabel="Withdraw"
-					successMessage="Stake withdrawn"
+					submitLabel="Retirer"
+					successMessage="Stake retiré"
 					danger
 				/>
 			</Section>

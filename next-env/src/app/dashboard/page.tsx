@@ -23,5 +23,5 @@ export default function DashboardPage() {
 		return <Unregistered />;
 	}
 
-	return <LoadingAlert text="Opening your dashboard…" />;
+	return <LoadingAlert text="Ouverture de votre tableau de bord…" />;
 }

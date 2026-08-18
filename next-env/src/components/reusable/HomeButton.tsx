@@ -6,7 +6,7 @@ import CustomButton from "./CustomButton";
 const HomeButton = ({ className }: { className?: string }) => {
   return (
     <div className={className}>
-      <CustomButton path="/" text="Home" variant="outline" />
+      <CustomButton path="/" text="Accueil" variant="outline" />
     </div>
   );
 };

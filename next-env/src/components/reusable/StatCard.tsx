@@ -60,7 +60,11 @@ const StatCard = ({
 						isLow ? "text-destructive" : "text-muted-foreground",
 					)}
 				>
-					{isLoading ? "Reading on-chain…" : isLow ? "Not funded" : hint}
+					{isLoading ?
+						"Lecture sur la blockchain…"
+					: isLow ?
+						"Non approvisionné"
+					:	hint}
 				</p>
 			</div>
 		</Card>

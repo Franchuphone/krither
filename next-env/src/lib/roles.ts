@@ -12,9 +12,9 @@ export const USERS_ADMIN_ROLE = keccak256(toBytes("USERS_ADMIN_ROLE"));
 /** Every role an admin can grant, revoke or price a plan against. */
 export const ROLE_OPTIONS = [
 	{ value: DEFAULT_ADMIN_ROLE, label: "Admin" },
-	{ value: PRODUCER_ROLE, label: "Producer" },
-	{ value: RESELLER_ROLE, label: "Reseller" },
-	{ value: CONSUMER_ROLE, label: "Consumer" },
+	{ value: PRODUCER_ROLE, label: "Producteur" },
+	{ value: RESELLER_ROLE, label: "Revendeur" },
+	{ value: CONSUMER_ROLE, label: "Consommateur" },
 	{ value: PAUSER_ROLE, label: "Pauser" },
 	{ value: PAYMASTER_ROLE, label: "Paymaster" },
 ] as const;
