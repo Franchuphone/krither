@@ -43,7 +43,7 @@ model Producer {
     companyName String
     legalForm   String
     /// First 9 digits are the SIREN, hence no separate field.
-    siret       String @unique
+    siret       String
     apeCode     String
 
     representativeName String
