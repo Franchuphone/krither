@@ -25,33 +25,15 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+	emptyValues,
+	isFieldValid,
+	toArgument,
+	type ContractField,
+} from "@/lib/contractFields";
 import { cn } from "@/lib/utils";
 
-/**
- * Solidity shape of a field. The type drives validation and how the raw input
- * is coerced into an argument; `options` only decides whether the control is a
- * select or a free input, so an option's value must still be valid for its type.
- * `ether` is typed in ETH and converted to wei, so no one has to count zeroes.
- */
-export type WriteFieldType =
-	| "address"
-	| "uint"
-	| "uint[]"
-	| "bytes32"
-	| "string"
-	| "bool"
-	| "ether";
-
-export type WriteField = {
-	name: string;
-	label: string;
-	type: WriteFieldType;
-	placeholder?: string;
-	options?: readonly { value: string; label: string }[];
-	/** Sends the field as the transaction value rather than an argument, which
-	 *  is what a payable call needs. Only meaningful on an `ether` field. */
-	asValue?: boolean;
-};
+export type WriteField = ContractField;
 
 type WriteCallCardProps = {
 	address: `0x${string}`;
@@ -68,59 +50,6 @@ type WriteCallCardProps = {
 	danger?: boolean;
 	disabled?: boolean;
 };
-
-const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
-const UINT = /^\d+$/;
-const UINT_LIST = /^\d+(\s*,\s*\d+)*$/;
-const BYTES32 = /^0x[0-9a-fA-F]{64}$/;
-const DECIMAL = /^\d+(\.\d+)?$/;
-
-function isFieldValid(field: WriteField, raw: string) {
-	const value = raw.trim();
-	if (field.type === "bool") return true;
-	if (!value) return false;
-
-	switch (field.type) {
-		case "address":
-			return ADDRESS.test(value);
-		case "uint":
-			return UINT.test(value);
-		case "uint[]":
-			return UINT_LIST.test(value);
-		case "bytes32":
-			return BYTES32.test(value);
-		case "ether":
-			return DECIMAL.test(value);
-		case "string":
-			return true;
-	}
-}
-
-function toArgument(field: WriteField, raw: string) {
-	const value = raw.trim();
-
-	switch (field.type) {
-		case "address":
-		case "bytes32":
-			return value as `0x${string}`;
-		case "uint":
-			return BigInt(value);
-		case "uint[]":
-			return value.split(",").map((item) => BigInt(item.trim()));
-		case "ether":
-			return parseEther(value);
-		case "bool":
-			return value === "true";
-		default:
-			return value;
-	}
-}
-
-function emptyValues(fields: readonly WriteField[]) {
-	return Object.fromEntries(
-		fields.map((field) => [field.name, field.type === "bool" ? "false" : ""]),
-	);
-}
 
 const WriteCallCard = ({
 	address,
