@@ -10,6 +10,7 @@ import {
 	SlidersHorizontal,
 	UserMinus,
 	UserPlus,
+	UserSearch,
 } from "lucide-react";
 import FundingSummary from "@/components/dashboards/FundingSummary";
 import WriteCallCard from "@/components/reusable/WriteCallCard";
@@ -17,6 +18,7 @@ import { paymasterABI } from "@/lib/paymaster";
 import { registryABI } from "@/lib/registry";
 import { ROLE_OPTIONS } from "@/lib/roles";
 import Section from "../reusable/Section";
+import ReadCallCard from "../reusable/ReadCallCard";
 
 const registryAddress = process.env
 	.NEXT_PUBLIC_REGISTRY_PRODUCTION_ADDRESS as `0x${string}`;
@@ -74,6 +76,23 @@ const Admin = () => {
 					]}
 					submitLabel="Révoquer"
 					successMessage="Statut révoqué"
+				/>
+				<ReadCallCard
+					address={registryAddress}
+					abi={registryABI}
+					functionName="hasRole"
+					title="Contrôler un utilisateur"
+					description={"Contrôle le statut d'un utilisateur"}
+					icon={UserSearch}
+					fields={[
+						roleField,
+						{
+							name: "account",
+							label: "Account",
+							type: "address",
+							placeholder: "0x…",
+						},
+					]}
 				/>
 				<WriteCallCard
 					address={registryAddress}
