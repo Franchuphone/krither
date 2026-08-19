@@ -5,6 +5,7 @@ import { useReadContract } from "wagmi";
 import StatCard from "@/components/reusable/StatCard";
 import { entryPointABI } from "@/lib/entryPoint";
 import { paymasterABI } from "@/lib/paymaster";
+import TopCardLayout from "../reusable/TopCardLayout";
 
 const paymasterAddress = process.env
 	.NEXT_PUBLIC_PAYMASTER_PRODUCTION_ADDRESS as `0x${string}`;
@@ -31,7 +32,7 @@ const FundingSummary = () => {
 	});
 
 	return (
-		<div className="grid w-full gap-4 sm:grid-cols-2">
+		<TopCardLayout>
 			<StatCard
 				label="Dépôt EntryPoint"
 				amount={depositInfo?.deposit}
@@ -42,13 +43,13 @@ const FundingSummary = () => {
 				label="Stake"
 				amount={depositInfo?.stake}
 				hint={
-					depositInfo?.staked
-						? "Verrouillé, le paymaster est utilisable."
-						: "Déverrouillé, le retrait est ouvert."
+					depositInfo?.staked ?
+						"Verrouillé, le paymaster est utilisable."
+					:	"Déverrouillé, le retrait est ouvert."
 				}
 				icon={Lock}
 			/>
-		</div>
+		</TopCardLayout>
 	);
 };
 
