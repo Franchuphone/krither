@@ -19,6 +19,7 @@ import { registryABI } from "@/lib/registry";
 import { ROLE_OPTIONS } from "@/lib/roles";
 import Section from "../reusable/Section";
 import ReadCallCard from "../reusable/ReadCallCard";
+import PauseSummary from "./PauseSummary";
 
 const registryAddress = process.env
 	.NEXT_PUBLIC_REGISTRY_PRODUCTION_ADDRESS as `0x${string}`;
@@ -36,6 +37,7 @@ const roleField = {
 const Admin = () => {
 	return (
 		<div className="flex w-full max-w-3xl flex-col gap-8 text-left">
+			<PauseSummary />
 			<FundingSummary />
 
 			<Section title="Gestion des comptes">
@@ -81,14 +83,14 @@ const Admin = () => {
 					address={registryAddress}
 					abi={registryABI}
 					functionName="hasRole"
-					title="Contrôler un utilisateur"
-					description={"Contrôle le statut d'un utilisateur"}
+					title="Contrôler une accréditation"
+					description={"Contrôle le statut d'un compte"}
 					icon={UserSearch}
 					fields={[
 						roleField,
 						{
 							name: "account",
-							label: "Account",
+							label: "Compte",
 							type: "address",
 							placeholder: "0x…",
 						},

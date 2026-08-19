@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { formatEther } from "viem";
-import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import InfoCard from "@/components/reusable/InfoCard";
 
 type StatCardProps = {
 	label: string;
@@ -23,51 +22,21 @@ const StatCard = ({
 	label,
 	amount,
 	hint,
-	icon: Icon,
+	icon,
 	// tsconfig targets below ES2020, so no bigint literals here.
 	lowWaterMark = BigInt(0),
 }: StatCardProps) => {
-	const isLoading = amount === undefined;
-	const isLow = !isLoading && amount <= lowWaterMark;
+	const isLow = amount !== undefined && amount <= lowWaterMark;
 
 	return (
-		<Card className="w-full gap-3">
-			<div className="flex items-center gap-2 px-(--card-spacing) text-muted-foreground">
-				<Icon className="size-4" />
-				<span className="text-xs font-medium tracking-wide uppercase">
-					{label}
-				</span>
-			</div>
-			<div className="flex flex-col gap-1 px-(--card-spacing)">
-				<p
-					className={cn(
-						"text-3xl font-bold tracking-tight tabular-nums",
-						isLoading && "text-muted-foreground",
-						isLow && "text-destructive",
-						!isLoading && !isLow && "text-foreground",
-					)}
-				>
-					{isLoading ? "—" : formatAmount(amount)}
-					{!isLoading && (
-						<span className="ml-1.5 text-base font-medium text-muted-foreground">
-							ETH
-						</span>
-					)}
-				</p>
-				<p
-					className={cn(
-						"text-xs",
-						isLow ? "text-destructive" : "text-muted-foreground",
-					)}
-				>
-					{isLoading ?
-						"Lecture sur la blockchain…"
-					: isLow ?
-						"Non approvisionné"
-					:	hint}
-				</p>
-			</div>
-		</Card>
+		<InfoCard
+			label={label}
+			value={amount === undefined ? undefined : formatAmount(amount)}
+			unit="ETH"
+			hint={isLow ? "Non approvisionné" : hint}
+			icon={icon}
+			alert={isLow}
+		/>
 	);
 };
 

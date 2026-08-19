@@ -229,7 +229,7 @@ const ReadCallCard = ({
 			<CardContent>
 				{invalidInput ?
 					<p className="text-sm text-muted-foreground">
-						Renseignez les champs pour lire la valeur.
+						Renseignez les champs pour activer la lecture
 					</p>
 				: readError ?
 					<p className="text-sm wrap-break-word text-destructive">
@@ -241,15 +241,15 @@ const ReadCallCard = ({
 					<p className="text-sm text-muted-foreground">
 						Lecture en cours…
 					</p>
-				:	<dl className="grid gap-2">
+				:	<dl>
 						{outputs.map((output, index) => {
 							const value = returned?.[index];
-							const label = output.name || output.type;
+							const label = output.name || undefined;
 
 							return (
 								<div
 									key={`${label}-${index}`}
-									className="flex flex-col gap-0.5 border-b border-border/50 pb-2 last:border-0 last:pb-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
+									className="p-2 text-2xl font-bold"
 								>
 									<dt className="text-sm text-muted-foreground">
 										{label}
