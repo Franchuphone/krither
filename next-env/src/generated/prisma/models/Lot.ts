@@ -14,8 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace"
 
 /**
  * Model Lot
- * A batch of items minted in one call. Holds the human data that goes into the
- * metadata directory before it is pinned, then the on-chain result.
+ * 
  */
 export type LotModel = runtime.Types.Result.DefaultSelection<Prisma.$LotPayload>
 
@@ -45,6 +44,7 @@ export type LotMinAggregateOutputType = {
   name: string | null
   description: string | null
   cid: string | null
+  groupId: string | null
   idLot: bigint | null
   txHash: string | null
   createdAt: Date | null
@@ -59,6 +59,7 @@ export type LotMaxAggregateOutputType = {
   name: string | null
   description: string | null
   cid: string | null
+  groupId: string | null
   idLot: bigint | null
   txHash: string | null
   createdAt: Date | null
@@ -73,6 +74,7 @@ export type LotCountAggregateOutputType = {
   name: number
   description: number
   cid: number
+  groupId: number
   idLot: number
   txHash: number
   createdAt: number
@@ -99,6 +101,7 @@ export type LotMinAggregateInputType = {
   name?: true
   description?: true
   cid?: true
+  groupId?: true
   idLot?: true
   txHash?: true
   createdAt?: true
@@ -113,6 +116,7 @@ export type LotMaxAggregateInputType = {
   name?: true
   description?: true
   cid?: true
+  groupId?: true
   idLot?: true
   txHash?: true
   createdAt?: true
@@ -127,6 +131,7 @@ export type LotCountAggregateInputType = {
   name?: true
   description?: true
   cid?: true
+  groupId?: true
   idLot?: true
   txHash?: true
   createdAt?: true
@@ -228,6 +233,7 @@ export type LotGroupByOutputType = {
   name: string
   description: string | null
   cid: string | null
+  groupId: string | null
   idLot: bigint | null
   txHash: string | null
   createdAt: Date
@@ -265,6 +271,7 @@ export type LotWhereInput = {
   name?: Prisma.StringFilter<"Lot"> | string
   description?: Prisma.StringNullableFilter<"Lot"> | string | null
   cid?: Prisma.StringNullableFilter<"Lot"> | string | null
+  groupId?: Prisma.StringNullableFilter<"Lot"> | string | null
   idLot?: Prisma.BigIntNullableFilter<"Lot"> | bigint | number | null
   txHash?: Prisma.StringNullableFilter<"Lot"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Lot"> | Date | string
@@ -281,6 +288,7 @@ export type LotOrderByWithRelationInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   cid?: Prisma.SortOrderInput | Prisma.SortOrder
+  groupId?: Prisma.SortOrderInput | Prisma.SortOrder
   idLot?: Prisma.SortOrderInput | Prisma.SortOrder
   txHash?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -303,6 +311,7 @@ export type LotWhereUniqueInput = Prisma.AtLeast<{
   name?: Prisma.StringFilter<"Lot"> | string
   description?: Prisma.StringNullableFilter<"Lot"> | string | null
   cid?: Prisma.StringNullableFilter<"Lot"> | string | null
+  groupId?: Prisma.StringNullableFilter<"Lot"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Lot"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Lot"> | Date | string
   producer?: Prisma.XOR<Prisma.ProducerScalarRelationFilter, Prisma.ProducerWhereInput>
@@ -317,6 +326,7 @@ export type LotOrderByWithAggregationInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   cid?: Prisma.SortOrderInput | Prisma.SortOrder
+  groupId?: Prisma.SortOrderInput | Prisma.SortOrder
   idLot?: Prisma.SortOrderInput | Prisma.SortOrder
   txHash?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -339,6 +349,7 @@ export type LotScalarWhereWithAggregatesInput = {
   name?: Prisma.StringWithAggregatesFilter<"Lot"> | string
   description?: Prisma.StringNullableWithAggregatesFilter<"Lot"> | string | null
   cid?: Prisma.StringNullableWithAggregatesFilter<"Lot"> | string | null
+  groupId?: Prisma.StringNullableWithAggregatesFilter<"Lot"> | string | null
   idLot?: Prisma.BigIntNullableWithAggregatesFilter<"Lot"> | bigint | number | null
   txHash?: Prisma.StringNullableWithAggregatesFilter<"Lot"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Lot"> | Date | string
@@ -352,6 +363,7 @@ export type LotCreateInput = {
   name: string
   description?: string | null
   cid?: string | null
+  groupId?: string | null
   idLot?: bigint | number | null
   txHash?: string | null
   createdAt?: Date | string
@@ -368,6 +380,7 @@ export type LotUncheckedCreateInput = {
   name: string
   description?: string | null
   cid?: string | null
+  groupId?: string | null
   idLot?: bigint | number | null
   txHash?: string | null
   createdAt?: Date | string
@@ -382,6 +395,7 @@ export type LotUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idLot?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   txHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -398,6 +412,7 @@ export type LotUncheckedUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idLot?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   txHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -413,6 +428,7 @@ export type LotCreateManyInput = {
   name: string
   description?: string | null
   cid?: string | null
+  groupId?: string | null
   idLot?: bigint | number | null
   txHash?: string | null
   createdAt?: Date | string
@@ -426,6 +442,7 @@ export type LotUpdateManyMutationInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idLot?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   txHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -440,6 +457,7 @@ export type LotUncheckedUpdateManyInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idLot?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   txHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -469,6 +487,7 @@ export type LotCountOrderByAggregateInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
   cid?: Prisma.SortOrder
+  groupId?: Prisma.SortOrder
   idLot?: Prisma.SortOrder
   txHash?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -488,6 +507,7 @@ export type LotMaxOrderByAggregateInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
   cid?: Prisma.SortOrder
+  groupId?: Prisma.SortOrder
   idLot?: Prisma.SortOrder
   txHash?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -502,6 +522,7 @@ export type LotMinOrderByAggregateInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
   cid?: Prisma.SortOrder
+  groupId?: Prisma.SortOrder
   idLot?: Prisma.SortOrder
   txHash?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -593,6 +614,7 @@ export type LotCreateWithoutProducerInput = {
   name: string
   description?: string | null
   cid?: string | null
+  groupId?: string | null
   idLot?: bigint | number | null
   txHash?: string | null
   createdAt?: Date | string
@@ -607,6 +629,7 @@ export type LotUncheckedCreateWithoutProducerInput = {
   name: string
   description?: string | null
   cid?: string | null
+  groupId?: string | null
   idLot?: bigint | number | null
   txHash?: string | null
   createdAt?: Date | string
@@ -651,6 +674,7 @@ export type LotScalarWhereInput = {
   name?: Prisma.StringFilter<"Lot"> | string
   description?: Prisma.StringNullableFilter<"Lot"> | string | null
   cid?: Prisma.StringNullableFilter<"Lot"> | string | null
+  groupId?: Prisma.StringNullableFilter<"Lot"> | string | null
   idLot?: Prisma.BigIntNullableFilter<"Lot"> | bigint | number | null
   txHash?: Prisma.StringNullableFilter<"Lot"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Lot"> | Date | string
@@ -664,6 +688,7 @@ export type LotCreateWithoutItemsInput = {
   name: string
   description?: string | null
   cid?: string | null
+  groupId?: string | null
   idLot?: bigint | number | null
   txHash?: string | null
   createdAt?: Date | string
@@ -679,6 +704,7 @@ export type LotUncheckedCreateWithoutItemsInput = {
   name: string
   description?: string | null
   cid?: string | null
+  groupId?: string | null
   idLot?: bigint | number | null
   txHash?: string | null
   createdAt?: Date | string
@@ -708,6 +734,7 @@ export type LotUpdateWithoutItemsInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idLot?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   txHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -723,6 +750,7 @@ export type LotUncheckedUpdateWithoutItemsInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idLot?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   txHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -736,6 +764,7 @@ export type LotCreateManyProducerInput = {
   name: string
   description?: string | null
   cid?: string | null
+  groupId?: string | null
   idLot?: bigint | number | null
   txHash?: string | null
   createdAt?: Date | string
@@ -749,6 +778,7 @@ export type LotUpdateWithoutProducerInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idLot?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   txHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -763,6 +793,7 @@ export type LotUncheckedUpdateWithoutProducerInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idLot?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   txHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -777,6 +808,7 @@ export type LotUncheckedUpdateManyWithoutProducerInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idLot?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   txHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -822,6 +854,7 @@ export type LotSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = ru
   name?: boolean
   description?: boolean
   cid?: boolean
+  groupId?: boolean
   idLot?: boolean
   txHash?: boolean
   createdAt?: boolean
@@ -839,6 +872,7 @@ export type LotSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extension
   name?: boolean
   description?: boolean
   cid?: boolean
+  groupId?: boolean
   idLot?: boolean
   txHash?: boolean
   createdAt?: boolean
@@ -854,6 +888,7 @@ export type LotSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extension
   name?: boolean
   description?: boolean
   cid?: boolean
+  groupId?: boolean
   idLot?: boolean
   txHash?: boolean
   createdAt?: boolean
@@ -869,13 +904,14 @@ export type LotSelectScalar = {
   name?: boolean
   description?: boolean
   cid?: boolean
+  groupId?: boolean
   idLot?: boolean
   txHash?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type LotOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "producerId" | "status" | "ref" | "name" | "description" | "cid" | "idLot" | "txHash" | "createdAt" | "updatedAt", ExtArgs["result"]["lot"]>
+export type LotOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "producerId" | "status" | "ref" | "name" | "description" | "cid" | "groupId" | "idLot" | "txHash" | "createdAt" | "updatedAt", ExtArgs["result"]["lot"]>
 export type LotInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   producer?: boolean | Prisma.ProducerDefaultArgs<ExtArgs>
   items?: boolean | Prisma.Lot$itemsArgs<ExtArgs>
@@ -891,10 +927,6 @@ export type LotIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
 export type $LotPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Lot"
   objects: {
-    /**
-     * Related on the internal id, not the address, so reassigning a producer's
-     * account leaves its lots attached.
-     */
     producer: Prisma.$ProducerPayload<ExtArgs>
     items: Prisma.$LotItemPayload<ExtArgs>[]
   }
@@ -903,20 +935,19 @@ export type $LotPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
     producerId: string
     status: $Enums.LotStatus
     /**
-     * The producer's own reference for the lot, the `ref` argument of mintLot.
-     * Unique per producer, exactly as `lotIds[producer][ref]` enforces on chain.
+     * The producer own id for the lot
      */
     ref: bigint
     name: string
     description: string | null
     /**
-     * Metadata directory CID. Set when the lot is pinned and never updated
-     * afterwards, matching the chain, where the uri is frozen at mint.
+     * Set when the lot is pinned, never updated after: the uri is frozen at mint.
      */
     cid: string | null
     /**
-     * Lot id returned by mintLot, null while the lot is still a draft.
+     * Pinata group holding every file pinned for this lot.
      */
+    groupId: string | null
     idLot: bigint | null
     txHash: string | null
     createdAt: Date
@@ -1353,6 +1384,7 @@ export interface LotFieldRefs {
   readonly name: Prisma.FieldRef<"Lot", 'String'>
   readonly description: Prisma.FieldRef<"Lot", 'String'>
   readonly cid: Prisma.FieldRef<"Lot", 'String'>
+  readonly groupId: Prisma.FieldRef<"Lot", 'String'>
   readonly idLot: Prisma.FieldRef<"Lot", 'BigInt'>
   readonly txHash: Prisma.FieldRef<"Lot", 'String'>
   readonly createdAt: Prisma.FieldRef<"Lot", 'DateTime'>

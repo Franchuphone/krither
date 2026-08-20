@@ -43,26 +43,21 @@ export { Prisma }
 
 /**
  * Model Contact
- * A message sent through the public "nous contacter" button. Written by
- * anonymous visitors, so nothing here is tied to a wallet or an account.
+ * 
  */
 export type Contact = Prisma.ContactModel
 /**
  * Model Producer
- * A producer's accreditation file, filled in at account creation. The registry
- * holds only the account address and its role, so every human and legal
- * detail has to live off chain.
+ * 
  */
 export type Producer = Prisma.ProducerModel
 /**
  * Model Lot
- * A batch of items minted in one call. Holds the human data that goes into the
- * metadata directory before it is pinned, then the on-chain result.
+ * 
  */
 export type Lot = Prisma.LotModel
 /**
  * Model LotItem
- * One item of a lot, matching both `<index>.json` in the metadata directory
- * and the packed token id `(idLot << 128) | index`.
+ * 
  */
 export type LotItem = Prisma.LotItemModel

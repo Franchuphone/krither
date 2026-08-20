@@ -14,8 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace"
 
 /**
  * Model LotItem
- * One item of a lot, matching both `<index>.json` in the metadata directory
- * and the packed token id `(idLot << 128) | index`.
+ * 
  */
 export type LotItemModel = runtime.Types.Result.DefaultSelection<Prisma.$LotItemPayload>
 
@@ -593,15 +592,11 @@ export type $LotItemPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     id: string
     lotId: string
     /**
-     * Position in the directory. It fixes the token id, so it never changes
-     * once the lot is minted.
+     * Fixes the token id `(idLot << 128) | index`, so it never changes.
      */
     index: number
     name: string
     description: string | null
-    /**
-     * Units minted for this item, the matching entry of mintLot's `quantities`.
-     */
     quantity: number
   }, ExtArgs["result"]["lotItem"]>
   composites: {}

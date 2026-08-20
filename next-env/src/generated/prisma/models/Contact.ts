@@ -14,8 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace"
 
 /**
  * Model Contact
- * A message sent through the public "nous contacter" button. Written by
- * anonymous visitors, so nothing here is tied to a wallet or an account.
+ * 
  */
 export type ContactModel = runtime.Types.Result.DefaultSelection<Prisma.$ContactPayload>
 

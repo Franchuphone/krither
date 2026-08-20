@@ -86,6 +86,9 @@ model Lot {
     /// Set when the lot is pinned, never updated after: the uri is frozen at mint.
     cid String?
 
+    /// Pinata group holding every file pinned for this lot.
+    groupId String?
+
     idLot  BigInt? @unique
     txHash String? @unique
 
