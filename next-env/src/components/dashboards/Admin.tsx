@@ -20,6 +20,7 @@ import { ROLE_OPTIONS } from "@/lib/roles";
 import Section from "../reusable/Section";
 import ReadCallCard from "../reusable/ReadCallCard";
 import PauseSummary from "./PauseSummary";
+import ProducerRequests from "./ProducerRequests";
 
 const registryAddress = process.env
 	.NEXT_PUBLIC_REGISTRY_PRODUCTION_ADDRESS as `0x${string}`;
@@ -39,6 +40,10 @@ const Admin = () => {
 		<div className="flex w-full max-w-3xl flex-col gap-8 text-left">
 			<PauseSummary />
 			<FundingSummary />
+
+			<Section title="Demandes d'accréditation" defaultOpen>
+				<ProducerRequests />
+			</Section>
 
 			<Section title="Gestion des comptes">
 				<WriteCallCard
