@@ -6,26 +6,26 @@ import { createSiweMessage } from "viem/siwe";
 import { useConnection, useSignMessage } from "wagmi";
 import { sepolia } from "wagmi/chains";
 import {
-	completeAdminSignIn,
-	currentAdminAddress,
-	startAdminSignIn,
-} from "@/app/actions/admin/session";
+	completeSignIn,
+	currentSessionAddress,
+	startSignIn,
+} from "@/app/actions/session";
 
-export function useAdminSession() {
+export function useSession() {
 	const { address } = useConnection();
 	const { mutateAsync: signMessage } = useSignMessage();
 	const queryClient = useQueryClient();
 
 	const { data: sessionAddress, isPending } = useQuery({
-		queryKey: ["admin-session"],
-		queryFn: currentAdminAddress,
+		queryKey: ["session"],
+		queryFn: currentSessionAddress,
 	});
 
 	const signIn = useMutation({
 		mutationFn: async () => {
 			if (!address) throw new Error("Aucun compte connecté");
 
-			const { nonce, domain } = await startAdminSignIn();
+			const { nonce, domain } = await startSignIn();
 
 			const message = createSiweMessage({
 				address,
@@ -34,12 +34,11 @@ export function useAdminSession() {
 				nonce,
 				uri: window.location.origin,
 				version: "1",
-				statement:
-					"Signez pour ouvrir une session d'administration Krither.",
+				statement: "Signez pour ouvrir une session Krither.",
 			});
 
 			const signature = await signMessage({ message });
-			const state = await completeAdminSignIn(message, signature);
+			const state = await completeSignIn(message, signature);
 			if (state.error) throw new Error(state.error);
 		},
 		onSuccess: () => queryClient.invalidateQueries(),

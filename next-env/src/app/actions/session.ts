@@ -4,17 +4,15 @@ import { cookies, headers } from "next/headers";
 import { getAddress, isAddress } from "viem";
 import { generateSiweNonce, parseSiweMessage } from "viem/siwe";
 import {
-	adminAddress,
 	cookieOptions,
 	NONCE_COOKIE,
 	NONCE_TTL_SECONDS,
 	SESSION_COOKIE,
 	SESSION_TTL_SECONDS,
 	seal,
-} from "@/lib/adminSession";
-import { registryABI } from "@/lib/registry";
-import { DEFAULT_ADMIN_ROLE } from "@/lib/roles";
-import { registryAddress, serverClient } from "@/lib/serverChain";
+	sessionAddress,
+} from "@/lib/session";
+import { serverClient } from "@/lib/serverChain";
 
 export type SignInState = { ok?: boolean; error?: string };
 
@@ -24,11 +22,11 @@ async function requestDomain() {
 	return host;
 }
 
-export async function currentAdminAddress() {
-	return adminAddress();
+export async function currentSessionAddress() {
+	return sessionAddress();
 }
 
-export async function startAdminSignIn() {
+export async function startSignIn() {
 	const nonce = generateSiweNonce();
 
 	(await cookies()).set(NONCE_COOKIE, nonce, {
@@ -39,7 +37,8 @@ export async function startAdminSignIn() {
 	return { nonce, domain: await requestDomain() };
 }
 
-export async function completeAdminSignIn(
+/** Establishes who the caller is; each action then gates on the role it needs. */
+export async function completeSignIn(
 	message: string,
 	signature: `0x${string}`,
 ): Promise<SignInState> {
@@ -61,14 +60,6 @@ export async function completeAdminSignIn(
 	});
 	if (!valid) return { error: "Signature invalide" };
 
-	const isAdmin = await serverClient.readContract({
-		address: registryAddress,
-		abi: registryABI,
-		functionName: "hasRole",
-		args: [DEFAULT_ADMIN_ROLE, getAddress(address)],
-	});
-	if (!isAdmin) return { error: "Accès refusé" };
-
 	jar.set(SESSION_COOKIE, seal(getAddress(address)), {
 		...cookieOptions,
 		maxAge: SESSION_TTL_SECONDS,
@@ -77,6 +68,6 @@ export async function completeAdminSignIn(
 	return { ok: true };
 }
 
-export async function endAdminSession() {
+export async function endSession() {
 	(await cookies()).delete(SESSION_COOKIE);
 }
