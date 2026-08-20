@@ -49,25 +49,6 @@ const Admin = () => {
 				<WriteCallCard
 					address={registryAddress}
 					abi={registryABI}
-					functionName="grantRole"
-					title="Ajouter une accréditation"
-					description="Autorise un compte à utiliser la plateforme avec un statut donné"
-					icon={UserPlus}
-					fields={[
-						roleField,
-						{
-							name: "account",
-							label: "Compte",
-							type: "address",
-							placeholder: "0x…",
-						},
-					]}
-					submitLabel="Attribuer"
-					successMessage="Statut attribué"
-				/>
-				<WriteCallCard
-					address={registryAddress}
-					abi={registryABI}
 					functionName="revokeRole"
 					title="Retirer une accréditation"
 					description="Retire un compte de la plateforme  en révoquant son statut"
