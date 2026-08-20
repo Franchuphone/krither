@@ -13,7 +13,7 @@ import {
 
 export function useAdminSession() {
 	const { address } = useConnection();
-	const { signMessageAsync } = useSignMessage();
+	const { mutateAsync: signMessage } = useSignMessage();
 	const queryClient = useQueryClient();
 
 	const { data: sessionAddress, isPending } = useQuery({
@@ -38,7 +38,7 @@ export function useAdminSession() {
 					"Signez pour ouvrir une session d'administration Krither.",
 			});
 
-			const signature = await signMessageAsync({ message });
+			const signature = await signMessage({ message });
 			const state = await completeAdminSignIn(message, signature);
 			if (state.error) throw new Error(state.error);
 		},

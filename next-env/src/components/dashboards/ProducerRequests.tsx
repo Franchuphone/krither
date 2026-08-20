@@ -52,7 +52,7 @@ const DossierCard = ({ dossier }: { dossier: ProducerDossier }) => {
 	const queryClient = useQueryClient();
 
 	const {
-		writeContract,
+		mutate: grantRole,
 		data: hash,
 		isPending: signing,
 		error: writeError,
@@ -158,7 +158,7 @@ const DossierCard = ({ dossier }: { dossier: ProducerDossier }) => {
 				<Button
 					disabled={busy}
 					onClick={() =>
-						writeContract({
+						grantRole({
 							address: registryAddress,
 							abi: registryABI,
 							functionName: "grantRole",
