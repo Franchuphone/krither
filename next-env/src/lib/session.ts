@@ -2,19 +2,19 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { getAddress, isAddress } from "viem";
 import { registryABI } from "@/lib/registry";
-import { DEFAULT_ADMIN_ROLE } from "@/lib/roles";
+import { DEFAULT_ADMIN_ROLE, PRODUCER_ROLE } from "@/lib/roles";
 import { registryAddress, serverClient } from "@/lib/serverChain";
 
-export const SESSION_COOKIE = "krither_admin";
-export const NONCE_COOKIE = "krither_admin_nonce";
+export const SESSION_COOKIE = "krither_session";
+export const NONCE_COOKIE = "krither_nonce";
 
 export const NONCE_TTL_SECONDS = 5 * 60;
 export const SESSION_TTL_SECONDS = 60 * 60;
 
-const secret = process.env.ADMIN_SESSION_SECRET;
+const secret = process.env.SESSION_SECRET;
 
 function sign(payload: string) {
-	if (!secret) throw new Error("Missing ADMIN_SESSION_SECRET");
+	if (!secret) throw new Error("Missing SESSION_SECRET");
 	return createHmac("sha256", secret).update(payload).digest("base64url");
 }
 
@@ -44,7 +44,8 @@ export const cookieOptions = {
 	path: "/",
 } as const;
 
-export async function adminAddress() {
+/** Proof of wallet ownership only: accreditation is a separate question. */
+export async function sessionAddress() {
 	const token = (await cookies()).get(SESSION_COOKIE)?.value;
 	return token ? unseal(token) : null;
 }
@@ -53,16 +54,19 @@ export async function adminAddress() {
  * The role is re-read on every call, not trusted from the cookie: a revocation
  * has to take effect before the session would have expired.
  */
-export async function requireAdmin() {
-	const address = await adminAddress();
+export async function requireRole(role: `0x${string}`) {
+	const address = await sessionAddress();
 	if (!address) return null;
 
-	const isAdmin = await serverClient.readContract({
+	const granted = await serverClient.readContract({
 		address: registryAddress,
 		abi: registryABI,
 		functionName: "hasRole",
-		args: [DEFAULT_ADMIN_ROLE, address],
+		args: [role, address],
 	});
 
-	return isAdmin ? address : null;
+	return granted ? address : null;
 }
+
+export const requireAdmin = () => requireRole(DEFAULT_ADMIN_ROLE);
+export const requireProducer = () => requireRole(PRODUCER_ROLE);

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
 	submitProducerRequest,
 	type SubmitState,
-} from "@/app/actions/producers";
+} from "@/app/actions/producer/registration";
 import { Button } from "@/components/ui/button";
 import {
 	Card,

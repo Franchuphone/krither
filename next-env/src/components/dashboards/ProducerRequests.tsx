@@ -25,7 +25,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { useAdminSession } from "@/hooks/useAdminSession";
+import { useSession } from "@/hooks/useSession";
 import {
 	LEGAL_FORM_OPTIONS,
 	type ProducerDossier,
@@ -52,7 +52,7 @@ const DossierCard = ({ dossier }: { dossier: ProducerDossier }) => {
 	const queryClient = useQueryClient();
 
 	const {
-		writeContract,
+		mutate: grantRole,
 		data: hash,
 		isPending: signing,
 		error: writeError,
@@ -70,7 +70,9 @@ const DossierCard = ({ dossier }: { dossier: ProducerDossier }) => {
 			if (state.error) throw new Error(state.error);
 		},
 		onSuccess: () => {
-			toast.success(`${dossier.companyName} accrédité`, { id: dossier.id });
+			toast.success(`${dossier.companyName} accrédité`, {
+				id: dossier.id,
+			});
 			queryClient.invalidateQueries();
 		},
 		onError: (error) => toast.error(error.message, { id: dossier.id }),
@@ -108,8 +110,7 @@ const DossierCard = ({ dossier }: { dossier: ProducerDossier }) => {
 		);
 	}, [writeError, receiptError, dossier.id]);
 
-	const busy =
-		signing || confirming || record.isPending || reject.isPending;
+	const busy = signing || confirming || record.isPending || reject.isPending;
 
 	return (
 		<Card className="w-full gap-4">
@@ -123,7 +124,9 @@ const DossierCard = ({ dossier }: { dossier: ProducerDossier }) => {
 					</CardTitle>
 					<CardDescription>
 						{legalFormLabel(dossier.legalForm)} · déposé le{" "}
-						{new Date(dossier.createdAt).toLocaleDateString("fr-FR")}
+						{new Date(dossier.createdAt).toLocaleDateString(
+							"fr-FR",
+						)}
 					</CardDescription>
 				</span>
 			</CardHeader>
@@ -158,7 +161,7 @@ const DossierCard = ({ dossier }: { dossier: ProducerDossier }) => {
 				<Button
 					disabled={busy}
 					onClick={() =>
-						writeContract({
+						grantRole({
 							address: registryAddress,
 							abi: registryABI,
 							functionName: "grantRole",
@@ -180,8 +183,12 @@ const DossierCard = ({ dossier }: { dossier: ProducerDossier }) => {
 };
 
 const ProducerRequests = () => {
-	const { active, isPending: sessionPending, signIn, signingIn } =
-		useAdminSession();
+	const {
+		active,
+		isPending: sessionPending,
+		signIn,
+		signingIn,
+	} = useSession();
 
 	const { data: dossiers, isPending } = useQuery({
 		queryKey: ["producer-requests"],
@@ -206,11 +213,14 @@ const ProducerRequests = () => {
 					</span>
 					<span className="flex flex-col gap-1">
 						<CardTitle className="text-base">
-							Session d&apos;administration
+							Vérification requise
 						</CardTitle>
 						<CardDescription>
-							Les dossiers contiennent des données personnelles :
-							signez pour prouver que ce wallet est bien le vôtre.
+							Les dossiers de demande contiennent des données
+							sensibles.
+							<br />
+							Pour des raisons de sécurité, veuillez vérifier
+							votre session.
 						</CardDescription>
 					</span>
 				</CardHeader>
@@ -218,7 +228,7 @@ const ProducerRequests = () => {
 					<Button disabled={signingIn} onClick={() => signIn()}>
 						{signingIn ?
 							<Loader2Icon className="animate-spin" />
-						:	"Signer"}
+						:	"Vérifier"}
 					</Button>
 				</CardFooter>
 			</Card>

@@ -14,9 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace"
 
 /**
  * Model Producer
- * A producer's accreditation file, filled in at account creation. The registry
- * holds only the account address and its role, so every human and legal
- * detail has to live off chain.
+ * 
  */
 export type ProducerModel = runtime.Types.Result.DefaultSelection<Prisma.$ProducerPayload>
 
@@ -342,13 +340,13 @@ export type ProducerWhereUniqueInput = Prisma.AtLeast<{
   id?: string
   registryId?: bigint | number
   account?: string
-  siret?: string
   AND?: Prisma.ProducerWhereInput | Prisma.ProducerWhereInput[]
   OR?: Prisma.ProducerWhereInput[]
   NOT?: Prisma.ProducerWhereInput | Prisma.ProducerWhereInput[]
   status?: Prisma.EnumAccreditationStatusFilter<"Producer"> | $Enums.AccreditationStatus
   companyName?: Prisma.StringFilter<"Producer"> | string
   legalForm?: Prisma.StringFilter<"Producer"> | string
+  siret?: Prisma.StringFilter<"Producer"> | string
   apeCode?: Prisma.StringFilter<"Producer"> | string
   representativeName?: Prisma.StringFilter<"Producer"> | string
   email?: Prisma.StringFilter<"Producer"> | string
@@ -360,7 +358,7 @@ export type ProducerWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"Producer"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Producer"> | Date | string
   lots?: Prisma.LotListRelationFilter
-}, "id" | "registryId" | "account" | "siret">
+}, "id" | "registryId" | "account">
 
 export type ProducerOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -878,41 +876,23 @@ export type $ProducerPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     /**
-     * Stable producer id KritherRoles assigns on the first PRODUCER_ROLE grant.
-     * Null while the request is still pending, since the chain only mints the
-     * id at accreditation. Once set, this is the identity to match on: it
-     * survives reassignProducer, which the address does not.
+     * Assigned on chain at accreditation, so null while pending. Survives
+     * reassignProducer, which the address does not.
      */
     registryId: bigint | null
     /**
-     * ERC-4337 smart-account address that filed the request, lowercased. Roles
-     * key on the account, never on the signer behind it. Do not treat this as
-     * the current wallet after accreditation: reassignProducer moves the id
-     * onto a new address, so resolve that through producerById(registryId).
+     * Wallet that filed the request, not necessarily the current one.
+     * After accreditation resolve through producerById(registryId).
      */
     account: string
     status: $Enums.AccreditationStatus
-    /**
-     * Legal identification, the set a Kbis carries.
-     * Denomination sociale.
-     */
     companyName: string
-    /**
-     * Forme juridique: SARL, SAS, EI, micro-entrepreneur and so on.
-     */
     legalForm: string
     /**
-     * 14 digits identifying the establishment. Its first 9 are the SIREN,
-     * which is why that is not stored separately.
+     * First 9 digits are the SIREN, hence no separate field.
      */
     siret: string
-    /**
-     * Code APE, the main activity. What accreditation is judged on.
-     */
     apeCode: string
-    /**
-     * Dirigeant signing for the company.
-     */
     representativeName: string
     email: string
     phone: string

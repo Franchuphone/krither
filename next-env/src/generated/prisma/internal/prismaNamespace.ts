@@ -798,6 +798,7 @@ export const LotScalarFieldEnum = {
   name: 'name',
   description: 'description',
   cid: 'cid',
+  groupId: 'groupId',
   idLot: 'idLot',
   txHash: 'txHash',
   createdAt: 'createdAt',
