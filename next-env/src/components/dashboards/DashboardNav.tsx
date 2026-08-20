@@ -1,15 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRolesContext } from "@/components/connection/RoleGuard";
+import PillNav from "@/components/reusable/PillNav";
 import { areaHref, unlockedAreas } from "@/lib/dashboard";
-import { cn } from "@/lib/utils";
-
-const linkClass =
-	"rounded-full px-4 py-1.5 text-sm font-medium transition-colors";
-const inactiveClass =
-	"text-muted-foreground hover:bg-primary/10 hover:text-primary";
 
 export default function DashboardNav() {
 	const roles = useRolesContext();
@@ -27,28 +21,19 @@ export default function DashboardNav() {
 		);
 	}
 
-	return (
-		<nav className="mx-auto flex flex-wrap items-center justify-center gap-1 rounded-full bg-card p-1 ring-1 ring-border">
-			{areas.map((area) => {
-				const href = areaHref(area);
-				const isActive = pathname.startsWith(href);
+	const items = areas.map((area) => ({
+		key: area.segment,
+		label: area.label,
+		href: areaHref(area),
+	}));
 
-				return (
-					<Link
-						key={area.segment}
-						href={href}
-						aria-current={isActive ? "page" : undefined}
-						className={cn(
-							linkClass,
-							isActive ?
-								"bg-primary text-primary-foreground hover:bg-primary/90"
-							:	inactiveClass,
-						)}
-					>
-						{area.label}
-					</Link>
-				);
-			})}
-		</nav>
+	return (
+		<PillNav
+			items={items}
+			activeKey={
+				areas.find((area) => pathname.startsWith(areaHref(area)))?.segment
+			}
+			label="Vos tableaux de bord"
+		/>
 	);
 }
