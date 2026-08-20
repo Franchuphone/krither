@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useCallback, type ReactNode } from "react";
 import { useConnection } from "wagmi";
-import { getProducerRequest } from "@/app/actions/producers";
+import { getProducerRequest } from "@/app/actions/producer/registration";
 import ProducerRegistrationForm from "@/components/dashboards/ProducerRegistrationForm";
 import LoadingAlert from "@/components/reusable/LoadingAlert";
 import { Button } from "@/components/ui/button";

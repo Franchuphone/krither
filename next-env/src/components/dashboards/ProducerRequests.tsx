@@ -25,7 +25,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { useAdminSession } from "@/hooks/useAdminSession";
+import { useSession } from "@/hooks/useSession";
 import {
 	LEGAL_FORM_OPTIONS,
 	type ProducerDossier,
@@ -181,7 +181,7 @@ const DossierCard = ({ dossier }: { dossier: ProducerDossier }) => {
 
 const ProducerRequests = () => {
 	const { active, isPending: sessionPending, signIn, signingIn } =
-		useAdminSession();
+		useSession();
 
 	const { data: dossiers, isPending } = useQuery({
 		queryKey: ["producer-requests"],

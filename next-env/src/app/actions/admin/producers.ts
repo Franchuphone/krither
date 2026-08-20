@@ -1,7 +1,7 @@
 "use server";
 
 import { getAddress } from "viem";
-import { requireAdmin } from "@/lib/adminSession";
+import { requireAdmin } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import type { ProducerDossier } from "@/lib/producerRegistration";
 import { registryABI } from "@/lib/registry";
