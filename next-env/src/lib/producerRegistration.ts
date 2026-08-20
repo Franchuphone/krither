@@ -219,3 +219,10 @@ export type ProducerRequest = {
 	companyName: string;
 	createdAt: string;
 };
+
+export type ProducerDossier = ProducerSubmission & {
+	id: string;
+	account: `0x${string}`;
+	status: ProducerStatus;
+	createdAt: string;
+};
