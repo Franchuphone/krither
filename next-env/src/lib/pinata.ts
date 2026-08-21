@@ -9,7 +9,9 @@ function authorization() {
 
 async function readJson<T>(response: Response, label: string) {
 	if (!response.ok) {
-		throw new Error(`${label} ${response.status}: ${await response.text()}`);
+		throw new Error(
+			`${label} ${response.status}: ${await response.text()}`,
+		);
 	}
 	return (await response.json()) as { data?: T };
 }
@@ -31,11 +33,16 @@ export async function createLotGroup(name: string) {
 }
 
 /** One directory, because uri() resolves `<cid>/<index>.json`. */
-export async function uploadDirectory(files: File[], group: string) {
+export async function uploadDirectory(
+	files: File[],
+	name: string,
+	group: string,
+) {
 	const form = new FormData();
 	for (const file of files) form.append("file", file);
 	form.append("network", "public");
-	form.append("group", group);
+	form.append("name", name);
+	form.append("group_id", group);
 
 	const response = await fetch(FILES_ENDPOINT, {
 		method: "POST",
