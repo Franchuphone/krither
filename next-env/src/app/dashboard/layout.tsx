@@ -10,7 +10,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 		<div className="flex min-h-screen flex-col gap-12 px-6 pt-32 pb-28">
 			<RoleGuard>
 				<DashboardNav />
-				<div className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center">
+				<div className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center">
 					{children}
 				</div>
 			</RoleGuard>

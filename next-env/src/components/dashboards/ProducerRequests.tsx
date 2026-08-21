@@ -16,6 +16,7 @@ import {
 	listProducerRequests,
 	rejectProducer,
 } from "@/app/actions/admin/producers";
+import Detail from "@/components/reusable/Detail";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -38,15 +39,6 @@ const registryAddress = process.env
 
 const legalFormLabel = (value: string) =>
 	LEGAL_FORM_OPTIONS.find((option) => option.value === value)?.label ?? value;
-
-const Detail = ({ label, value }: { label: string; value: string }) => (
-	<div className="flex flex-col gap-0.5">
-		<span className="text-xs tracking-wide text-muted-foreground uppercase">
-			{label}
-		</span>
-		<span className="text-sm break-all text-foreground">{value}</span>
-	</div>
-);
 
 const DossierCard = ({ dossier }: { dossier: ProducerDossier }) => {
 	const queryClient = useQueryClient();

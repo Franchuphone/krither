@@ -17,7 +17,8 @@ export default function ConnectionGuard({ children }: { children: ReactNode }) {
 	const { isConnected } = useConnection();
 	const router = useRouter();
 	const pathname = usePathname();
-	const isPublic = pathname === "/";
+	const isHome = pathname === "/";
+	const isPublic = isHome || pathname.startsWith("/verify/");
 
 	// Connection state is client-only; wait for mount to avoid a hydration mismatch.
 	const [mounted, setMounted] = useState(false);
@@ -28,15 +29,16 @@ export default function ConnectionGuard({ children }: { children: ReactNode }) {
 		if (mounted && !isConnected && !isPublic) {
 			router.replace("/");
 		}
-		if (isConnected && isPublic) {
+		if (isConnected && isHome) {
 			router.replace("/dashboard");
 		}
-	}, [mounted, isConnected, isPublic, router]);
+	}, [mounted, isConnected, isHome, isPublic, router]);
 
 	if (!mounted) return null;
 
 	if (!isConnected) {
-		return isPublic ? <NotConnectedHome /> : null;
+		if (isHome) return <NotConnectedHome />;
+		if (!isPublic) return null;
 	}
 
 	return <>{children}</>;

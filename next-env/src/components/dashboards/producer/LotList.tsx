@@ -18,6 +18,7 @@ import {
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { registryABI } from "@/lib/registry";
+import LotQrCode from "./LotQrCode";
 
 const registryAddress = process.env
 	.NEXT_PUBLIC_REGISTRY_PRODUCTION_ADDRESS as `0x${string}`;
@@ -76,7 +77,10 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 		setPinning(true);
 		toast.loading("Publication des métadonnées", { id: lot.id });
 
-		const { plan, error } = await pinLotDraft(lot.id);
+		const { plan, error } = await pinLotDraft(lot.id).catch(() => ({
+			plan: undefined,
+			error: "Publication impossible",
+		}));
 		setPinning(false);
 
 		if (error || !plan) {
@@ -137,7 +141,7 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 								className="flex items-center gap-3 px-3 py-2.5"
 							>
 								<span className="flex size-6 shrink-0 items-center justify-center rounded bg-muted text-xs font-medium text-muted-foreground tabular-nums">
-									{item.index + 1}
+									{item.index}
 								</span>
 
 								<span className="flex min-w-0 flex-col">
@@ -168,6 +172,26 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 							</span>
 							<span className="tabular-nums">{units} unités</span>
 						</span>
+						{lot.zone && (
+							<span className="flex min-w-0 items-baseline gap-1.5">
+								<span className="rounded bg-muted px-1.5 py-0.5 font-medium tracking-wide uppercase">
+									Zone
+								</span>
+								<span className="truncate">{lot.zone}</span>
+							</span>
+						)}
+						{lot.producedAt && (
+							<span className="flex min-w-0 items-baseline gap-1.5">
+								<span className="rounded bg-muted px-1.5 py-0.5 font-medium tracking-wide uppercase">
+									Date
+								</span>
+								<span className="tabular-nums">
+									{new Date(lot.producedAt).toLocaleDateString(
+										"fr-FR",
+									)}
+								</span>
+							</span>
+						)}
 						{lot.cid && (
 							<span className="flex min-w-0 items-baseline gap-1.5">
 								<span className="rounded bg-muted px-1.5 py-0.5 font-medium tracking-wide uppercase">
@@ -177,6 +201,8 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 							</span>
 						)}
 					</div>
+
+					{minted && <LotQrCode lotId={lot.id} />}
 
 					{!minted && (
 						<div className="flex justify-end">

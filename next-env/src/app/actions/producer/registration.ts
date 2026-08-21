@@ -6,10 +6,14 @@ import {
 	normalizeSubmission,
 	PRODUCER_FIELD_NAMES,
 	validateSubmission,
+	type ProducerDossier,
 	type ProducerFieldName,
 	type ProducerRequest,
 	type ProducerSubmission,
 } from "@/lib/producerRegistration";
+import { registryABI } from "@/lib/registry";
+import { registryAddress, serverClient } from "@/lib/serverChain";
+import { requireProducer } from "@/lib/session";
 
 export type SubmitState = {
 	ok?: boolean;
@@ -29,6 +33,36 @@ export async function getProducerRequest(
 
 	return (
 		producer && { ...producer, createdAt: producer.createdAt.toISOString() }
+	);
+}
+
+export async function getProducerDossier(): Promise<ProducerDossier | null> {
+	const account = await requireProducer();
+	if (!account) return null;
+
+	const address = getAddress(account);
+
+	const registryId = await serverClient.readContract({
+		address: registryAddress,
+		abi: registryABI,
+		functionName: "producerByAddr",
+		args: [address],
+	});
+
+	const producer = await prisma.producer.findFirst({
+		where:
+			registryId > BigInt(0) ?
+				{ OR: [{ registryId }, { account: address }] }
+			:	{ account: address },
+		omit: { registryId: true, updatedAt: true },
+	});
+
+	return (
+		producer && {
+			...producer,
+			account: producer.account as `0x${string}`,
+			createdAt: producer.createdAt.toISOString(),
+		}
 	);
 }
 
