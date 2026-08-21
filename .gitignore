@@ -38,6 +38,11 @@ pnpm-debug.log*
 next-env.d.ts
 .vercel
 
+# === Prisma ===
+# Client rebuilt by postinstall / `pnpm db:generate`. Needs the ** prefix: a
+# pattern holding a slash is anchored to this file's folder, not any depth.
+**/src/generated/
+
 # === Hardhat / Solidity ===
 cache/
 artifacts/
@@ -48,6 +53,9 @@ ignition/deployments/
 # === Testing / analysis tooling ===
 .nyc_output/
 crytic-export/
+
+# === Certificates ===
+*.pem
 
 # === Editor / OS ===
 .vscode/*
