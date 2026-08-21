@@ -34,6 +34,7 @@ const Field = ({
 	placeholder,
 	error,
 	disabled,
+	type,
 }: {
 	id: string;
 	label: string;
@@ -42,6 +43,7 @@ const Field = ({
 	placeholder?: string;
 	error?: string;
 	disabled?: boolean;
+	type?: string;
 }) => (
 	<div className="flex flex-col gap-1.5">
 		<Label htmlFor={id} className="text-muted-foreground">
@@ -49,6 +51,7 @@ const Field = ({
 		</Label>
 		<Input
 			id={id}
+			type={type}
 			value={value}
 			onChange={(event) => onChange(event.target.value)}
 			placeholder={placeholder}
@@ -128,6 +131,28 @@ const LotDraftForm = () => {
 						}
 						placeholder="2026001"
 						error={touched ? errors.ref : undefined}
+						disabled={save.isPending}
+					/>
+					<Field
+						id="lot-zone"
+						label="Zone de récolte / fabrication"
+						value={lot.zone}
+						onChange={(zone) =>
+							setLot((current) => ({ ...current, zone }))
+						}
+						placeholder="Baie de Saint-Brieuc"
+						error={touched ? errors.zone : undefined}
+						disabled={save.isPending}
+					/>
+					<Field
+						id="lot-produced-at"
+						label="Date de récolte / fabrication"
+						type="date"
+						value={lot.producedAt}
+						onChange={(producedAt) =>
+							setLot((current) => ({ ...current, producedAt }))
+						}
+						error={touched ? errors.producedAt : undefined}
 						disabled={save.isPending}
 					/>
 					<div className="sm:col-span-2">

@@ -2,18 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Boxes, PackageCheck } from "lucide-react";
-import { useConnection, useReadContract } from "wagmi";
+import { useConnection } from "wagmi";
 import { countProducerLots } from "@/app/actions/producer/lots";
 import InfoCard from "@/components/reusable/InfoCard";
-import { paymasterABI } from "@/lib/paymaster";
-import { registryABI } from "@/lib/registry";
-import TopCardLayout from "../reusable/TopCardLayout";
-
-const paymasterAddress = process.env
-	.NEXT_PUBLIC_PAYMASTER_PRODUCTION_ADDRESS as `0x${string}`;
-
-const registryAddress = process.env
-	.NEXT_PUBLIC_REGISTRY_PRODUCTION_ADDRESS as `0x${string}`;
+import TopCardLayout from "@/components/reusable/TopCardLayout";
 
 const LotSummary = () => {
 	const { address } = useConnection();

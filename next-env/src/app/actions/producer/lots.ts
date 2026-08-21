@@ -1,9 +1,11 @@
 "use server";
 
+import { toString } from "qrcode";
 import { getAddress, isAddress, parseEventLogs } from "viem";
 import prisma from "@/lib/prisma";
 import {
 	buildItemMetadata,
+	buildLotMetadata,
 	isLotValid,
 	MAX_ITEMS,
 	normalizeLot,
@@ -24,6 +26,8 @@ export type MintPlan = { cid: string; ref: string; quantities: string[] };
 
 const EMPTY: LotCounts = { total: 0, minted: 0 };
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
 async function producerOf(account: string) {
 	if (!isAddress(account)) return null;
 	const address = getAddress(account);
@@ -35,13 +39,15 @@ async function producerOf(account: string) {
 		args: [address],
 	});
 
-	return prisma.producer.findFirst({
+	const producer = await prisma.producer.findFirst({
 		where:
 			registryId > BigInt(0) ?
 				{ OR: [{ registryId }, { account: address }] }
 			:	{ account: address },
 		select: { id: true, companyName: true },
 	});
+
+	return producer && { ...producer, account: address, registryId };
 }
 
 async function currentProducer() {
@@ -49,15 +55,15 @@ async function currentProducer() {
 	return address && producerOf(address);
 }
 
-export async function countProducerLots(
-	account: string,
-): Promise<LotCounts> {
+export async function countProducerLots(account: string): Promise<LotCounts> {
 	const producer = await producerOf(account);
 	if (!producer) return EMPTY;
 
 	const [total, minted] = await Promise.all([
 		prisma.lot.count({ where: { producerId: producer.id } }),
-		prisma.lot.count({ where: { producerId: producer.id, status: "MINTED" } }),
+		prisma.lot.count({
+			where: { producerId: producer.id, status: "MINTED" },
+		}),
 	]);
 
 	return { total, minted };
@@ -79,6 +85,8 @@ export async function listProducerLots() {
 		description: lot.description,
 		ref: lot.ref.toString(),
 		status: lot.status,
+		zone: lot.zone,
+		producedAt: lot.producedAt?.toISOString() ?? null,
 		cid: lot.cid,
 		idLot: lot.idLot?.toString() ?? null,
 		txHash: lot.txHash,
@@ -109,9 +117,11 @@ export async function createLotDraft(input: LotInput): Promise<DraftState> {
 				name: lot.name,
 				description: lot.description || null,
 				ref: BigInt(lot.ref),
+				zone: lot.zone,
+				producedAt: new Date(lot.producedAt),
 				items: {
 					create: lot.items.map((item, index) => ({
-						index,
+						index: index + 1,
 						name: item.name,
 						description: item.description || null,
 						quantity: Number(item.quantity),
@@ -121,7 +131,7 @@ export async function createLotDraft(input: LotInput): Promise<DraftState> {
 		});
 	} catch (error) {
 		if ((error as { code?: string }).code !== "P2002") throw error;
-		return { error: "Cette référence est déjà utilisée" };
+		return { error: "Ce numéro de lot est déjà utilisé" };
 	}
 
 	return { ok: true };
@@ -142,23 +152,42 @@ export async function pinLotDraft(
 	if (lot.status !== "DRAFT") return { error: "Lot déjà ancré" };
 	if (lot.items.length === 0) return { error: "Lot sans article" };
 
-	const quantities = lot.items.map((item) => item.quantity.toString());
+	const units = lot.items.reduce((total, item) => total + item.quantity, 0);
+	const quantities = [units, ...lot.items.map((item) => item.quantity)].map(
+		String,
+	);
 
 	if (lot.cid) {
 		return { plan: { cid: lot.cid, ref: lot.ref.toString(), quantities } };
 	}
 
-	const group = lot.groupId ?? (await createLotGroup(`Krither-${lot.id}`));
+	const label = `Krither-p${producer.registryId}-${lot.ref}`;
 
-	const cid = await uploadDirectory(
-		lot.items.map((item) =>
-			jsonFile(
-				`${item.index}.json`,
-				buildItemMetadata(lot, item, producer.companyName),
-			),
-		),
-		group,
-	);
+	let group: string;
+	let cid: string;
+	try {
+		group = lot.groupId ?? (await createLotGroup(label));
+
+		cid = await uploadDirectory(
+			[
+				jsonFile(
+					"0.json",
+					buildLotMetadata(lot, producer.companyName, units),
+				),
+				...lot.items.map((item) =>
+					jsonFile(
+						`${item.index}.json`,
+						buildItemMetadata(lot, item, producer.companyName),
+					),
+				),
+			],
+			`${label}-JSON`,
+			group,
+		);
+	} catch (cause) {
+		console.error(cause);
+		return { error: "Publication des métadonnées impossible" };
+	}
 
 	await prisma.lot.update({
 		where: { id: lot.id },
@@ -166,6 +195,24 @@ export async function pinLotDraft(
 	});
 
 	return { plan: { cid, ref: lot.ref.toString(), quantities } };
+}
+
+export async function lotQrCode(
+	lotId: string,
+): Promise<{ url?: string; svg?: string; error?: string }> {
+	const producer = await currentProducer();
+	if (!producer) return { error: "Accès refusé" };
+
+	const lot = await prisma.lot.findFirst({
+		where: { id: lotId, producerId: producer.id },
+		select: { ref: true, status: true },
+	});
+	if (!lot) return { error: "Lot introuvable" };
+	if (lot.status !== "MINTED") return { error: "Lot pas encore ancré" };
+
+	const url = `${appUrl}/verify/${producer.registryId}/${lot.ref}`;
+
+	return { url, svg: await toString(url, { type: "svg", margin: 1 }) };
 }
 
 /** Reads the mined receipt rather than trusting the client for idLot. */

@@ -1,5 +1,5 @@
 import RoleAreaGuard from "@/components/connection/RoleAreaGuard";
-import Producer from "@/components/dashboards/Producer";
+import Producer from "@/components/dashboards/producer/Producer";
 
 export default function ProducerPage() {
 	return (

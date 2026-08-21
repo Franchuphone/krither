@@ -83,6 +83,9 @@ model Lot {
     name        String
     description String?
 
+    zone       String?
+    producedAt DateTime?
+
     /// Set when the lot is pinned, never updated after: the uri is frozen at mint.
     cid String?
 

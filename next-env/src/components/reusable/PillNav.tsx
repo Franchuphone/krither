@@ -1,5 +1,6 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -9,6 +10,8 @@ export type PillNavItem = {
 	label: string;
 	/** Navigates when set, otherwise the pill reports through onSelect. */
 	href?: string;
+	/** Replaces the label, which stays as the accessible name. */
+	icon?: LucideIcon;
 };
 
 type Indicator = { left: number; top: number; width: number; height: number };
@@ -85,12 +88,19 @@ const PillNav = ({
 
 			{items.map((item) => {
 				const isActive = item.key === activeKey;
+				const Icon = item.icon;
 				const classes = cn(
 					pillClass,
+					Icon && "px-3.5",
 					isActive ?
 						"text-primary-foreground"
 					:	"text-muted-foreground hover:text-primary",
 				);
+
+				const content =
+					Icon ?
+						<Icon aria-hidden className="size-4.5" />
+					:	item.label;
 
 				return item.href ?
 						<Link
@@ -98,19 +108,23 @@ const PillNav = ({
 							href={item.href}
 							data-active={isActive}
 							aria-current={isActive ? "page" : undefined}
+							aria-label={Icon ? item.label : undefined}
+							title={Icon ? item.label : undefined}
 							className={classes}
 						>
-							{item.label}
+							{content}
 						</Link>
 					:	<button
 							key={item.key}
 							type="button"
 							data-active={isActive}
 							aria-current={isActive ? "true" : undefined}
+							aria-label={Icon ? item.label : undefined}
+							title={Icon ? item.label : undefined}
 							className={cn(classes, "cursor-pointer")}
 							onClick={() => onSelect?.(item.key)}
 						>
-							{item.label}
+							{content}
 						</button>;
 			})}
 		</nav>
