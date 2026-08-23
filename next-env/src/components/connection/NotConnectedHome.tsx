@@ -290,6 +290,7 @@ function FinalContent({
 						)}`}
 					/>
 				}
+				nativeButton={false}
 				// Invisible off-beat, so keep it out of the tab order too.
 				tabIndex={active ? 0 : -1}
 				className={cn(
