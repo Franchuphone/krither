@@ -1,5 +1,6 @@
 const GROUPS_ENDPOINT = "https://api.pinata.cloud/v3/groups/public";
 const FILES_ENDPOINT = "https://uploads.pinata.cloud/v3/files";
+const MANAGE_ENDPOINT = "https://api.pinata.cloud/v3/files/public";
 
 function authorization() {
 	const jwt = process.env.PINATA_JWT;
@@ -16,7 +17,7 @@ async function readJson<T>(response: Response, label: string) {
 	return (await response.json()) as { data?: T };
 }
 
-export async function createLotGroup(name: string) {
+export async function createGroup(name: string) {
 	const response = await fetch(GROUPS_ENDPOINT, {
 		method: "POST",
 		headers: {
@@ -54,6 +55,40 @@ export async function uploadDirectory(
 	if (!data?.cid) throw new Error("Pinata returned no CID");
 
 	return data.cid;
+}
+
+/** Deposited before the metadata directory: its cid goes inside the json. */
+export async function uploadDocument(file: File, name: string, group: string) {
+	const form = new FormData();
+	form.append("file", file);
+	form.append("network", "public");
+	form.append("name", name);
+	form.append("group_id", group);
+
+	const response = await fetch(FILES_ENDPOINT, {
+		method: "POST",
+		headers: { Authorization: authorization() },
+		body: form,
+	});
+
+	const { data } = await readJson<{ id: string; cid: string }>(
+		response,
+		"Pinata upload",
+	);
+	if (!data?.cid || !data.id) throw new Error("Pinata returned no CID");
+
+	return { cid: data.cid, pinataId: data.id };
+}
+
+export async function deleteFile(pinataId: string) {
+	const response = await fetch(`${MANAGE_ENDPOINT}/${pinataId}`, {
+		method: "DELETE",
+		headers: { Authorization: authorization() },
+	});
+
+	if (!response.ok) {
+		throw new Error(`Pinata delete ${response.status}`);
+	}
 }
 
 export function jsonFile(name: string, content: unknown) {

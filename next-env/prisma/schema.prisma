@@ -40,6 +40,9 @@ model Producer {
 
     status AccreditationStatus @default(PENDING)
 
+    /// Pinata group holding everything this producer pins.
+    groupId String?
+
     companyName String
     legalForm   String
     /// First 9 digits are the SIREN, hence no separate field.
@@ -89,16 +92,14 @@ model Lot {
     /// Set when the lot is pinned, never updated after: the uri is frozen at mint.
     cid String?
 
-    /// Pinata group holding every file pinned for this lot.
-    groupId String?
-
     idLot  BigInt? @unique
     txHash String? @unique
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    items LotItem[]
+    items     LotItem[]
+    documents LotDocument[]
 
     @@unique([producerId, ref])
     @@index([status])
@@ -118,5 +119,30 @@ model LotItem {
 
     quantity Int
 
+    document LotDocument?
+
     @@unique([lotId, index])
+}
+
+model LotDocument {
+    id String @id @default(uuid())
+
+    lot   Lot    @relation(fields: [lotId], references: [id], onDelete: Cascade)
+    lotId String
+
+    /// Null for a lot-level document. Unique: an item carries at most one.
+    item   LotItem? @relation(fields: [itemId], references: [id], onDelete: Cascade)
+    itemId String?  @unique
+
+    name     String
+    mimeType String
+    size     Int
+
+    /// Pinned on deposit, so the cid is known before the metadata is built.
+    cid      String
+    pinataId String
+
+    createdAt DateTime @default(now())
+
+    @@index([lotId])
 }

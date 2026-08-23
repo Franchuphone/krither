@@ -2,6 +2,7 @@
 
 import { getAddress } from "viem";
 import { requireAdmin } from "@/lib/session";
+import { createGroup } from "@/lib/pinata";
 import prisma from "@/lib/prisma";
 import type { ProducerDossier } from "@/lib/producerRegistration";
 import { registryABI } from "@/lib/registry";
@@ -54,9 +55,19 @@ export async function approveProducer(id: string): Promise<ReviewState> {
 		args: [account],
 	});
 
+	// Accredited implies the group exists: on failure the dossier stays PENDING
+	// and the admin retries, rather than leaving a producer with nowhere to pin.
+	let groupId: string;
+	try {
+		groupId = await createGroup(`Krither-p${registryId}`);
+	} catch (cause) {
+		console.error(cause);
+		return { error: "Espace de stockage indisponible, réessayez" };
+	}
+
 	await prisma.producer.update({
 		where: { id },
-		data: { status: "APPROVED", registryId },
+		data: { status: "APPROVED", registryId, groupId },
 	});
 
 	return { ok: true };
