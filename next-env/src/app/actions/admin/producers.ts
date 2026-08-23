@@ -17,7 +17,7 @@ export async function listProducerRequests(): Promise<ProducerDossier[]> {
 	const producers = await prisma.producer.findMany({
 		where: { status: "PENDING" },
 		orderBy: { createdAt: "asc" },
-		omit: { registryId: true, updatedAt: true },
+		omit: { registryId: true, updatedAt: true, groupId: true },
 	});
 
 	return producers.map((producer) => ({
