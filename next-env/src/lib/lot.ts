@@ -40,6 +40,9 @@ export const EMPTY_LOT: LotInput = {
 
 export const MAX_ITEMS = 50;
 
+/** Lot-level only: each item keeps its own single document on top. */
+export const MAX_LOT_DOCUMENTS = 5;
+
 export function normalizeLot(input: LotInput): LotInput {
 	return {
 		name: input.name.trim().replace(/\s+/g, " "),
@@ -94,11 +97,17 @@ export function isLotValid(errors: LotErrors) {
 	return Object.keys(errors).length === 0;
 }
 
+export type LotDocument = { name: string; cid: string };
+
 export type ItemMetadata = {
 	name: string;
 	description?: string;
 	properties: Record<string, string | number>;
+	documents: LotDocument[];
 };
+
+const documentsOf = (documents: { name: string; cid: string }[]) =>
+	documents.map(({ name, cid }) => ({ name, cid }));
 
 export type LotRecord = {
 	name: string;
@@ -117,7 +126,7 @@ const lotProperties = (lot: LotRecord, producer: string) => ({
 
 /** Index 0 carries the lot, its quantity being the total units minted. */
 export function buildLotMetadata(
-	lot: LotRecord,
+	lot: LotRecord & { documents: LotDocument[] },
 	producer: string,
 	units: number,
 ): ItemMetadata {
@@ -125,13 +134,19 @@ export function buildLotMetadata(
 		name: lot.name,
 		description: lot.description ?? undefined,
 		properties: { ...lotProperties(lot, producer), quantity: units },
+		documents: documentsOf(lot.documents),
 	};
 }
 
 /** One `<index>.json` per item: uri() appends the index to the directory CID. */
 export function buildItemMetadata(
 	lot: LotRecord,
-	item: { name: string; description: string | null; quantity: number },
+	item: {
+		name: string;
+		description: string | null;
+		quantity: number;
+		document: LotDocument | null;
+	},
 	producer: string,
 ): ItemMetadata {
 	return {
@@ -142,5 +157,6 @@ export function buildItemMetadata(
 			...lotProperties(lot, producer),
 			quantity: item.quantity,
 		},
+		documents: documentsOf(item.document ? [item.document] : []),
 	};
 }

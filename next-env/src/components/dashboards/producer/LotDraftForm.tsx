@@ -1,10 +1,20 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2Icon, PackagePlusIcon, PlusIcon, XIcon } from "lucide-react";
-import { useState } from "react";
+import {
+	FileTextIcon,
+	Loader2Icon,
+	PackagePlusIcon,
+	PaperclipIcon,
+	PlusIcon,
+	XIcon,
+} from "lucide-react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { createLotDraft } from "@/app/actions/producer/lots";
+import {
+	createLotDraft,
+	depositLotDocument,
+} from "@/app/actions/producer/lots";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -21,6 +31,7 @@ import {
 	EMPTY_LOT,
 	isLotValid,
 	MAX_ITEMS,
+	MAX_LOT_DOCUMENTS,
 	normalizeLot,
 	validateLot,
 	type LotInput,
@@ -62,8 +73,78 @@ const Field = ({
 	</div>
 );
 
+const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp";
+
+const FilePicker = ({
+	label,
+	files,
+	max,
+	onPick,
+	onDrop,
+	disabled,
+}: {
+	label: string;
+	files: File[];
+	max: number;
+	onPick: (picked: File[]) => void;
+	onDrop: (index: number) => void;
+	disabled?: boolean;
+}) => {
+	const input = useRef<HTMLInputElement>(null);
+
+	return (
+		<div className="flex flex-col gap-1.5">
+			{files.map((file, index) => (
+				<div key={index} className="flex items-center gap-2 text-xs">
+					<FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
+					<span className="truncate text-foreground">
+						{file.name}
+					</span>
+					<Button
+						variant="ghost"
+						size="icon"
+						aria-label="Retirer le document"
+						className="ml-auto size-6"
+						disabled={disabled}
+						onClick={() => onDrop(index)}
+					>
+						<XIcon className="size-3.5" />
+					</Button>
+				</div>
+			))}
+
+			<input
+				ref={input}
+				type="file"
+				accept={ACCEPT}
+				multiple={max > 1}
+				className="hidden"
+				onChange={(event) => {
+					const picked = Array.from(event.target.files ?? []);
+					event.target.value = "";
+					// Sliced rather than refused: picking six keeps the first five.
+					if (picked.length > 0)
+						onPick(picked.slice(0, max - files.length));
+				}}
+			/>
+			<Button
+				variant="secondary"
+				size="sm"
+				className="self-start"
+				disabled={disabled || files.length >= max}
+				onClick={() => input.current?.click()}
+			>
+				<PaperclipIcon />
+				{label}
+			</Button>
+		</div>
+	);
+};
+
 const LotDraftForm = () => {
 	const [lot, setLot] = useState<LotInput>(EMPTY_LOT);
+	const [lotFiles, setLotFiles] = useState<File[]>([]);
+	const [itemFiles, setItemFiles] = useState<(File | null)[]>([null]);
 	const queryClient = useQueryClient();
 
 	const errors = validateLot(normalizeLot(lot));
@@ -72,11 +153,41 @@ const LotDraftForm = () => {
 	const save = useMutation({
 		mutationFn: async () => {
 			const state = await createLotDraft(lot);
-			if (state.error) throw new Error(state.error);
+			if (state.error || !state.lotId) {
+				throw new Error(state.error ?? "Enregistrement impossible");
+			}
+
+			// Pinned only now: a document needs the lot it hangs from to exist.
+			const deposits = [
+				...lotFiles.map((file) => ({ file, itemId: undefined })),
+				...itemFiles.flatMap((file, position) =>
+					file ? [{ file, itemId: state.itemIds?.[position] }] : [],
+				),
+			];
+
+			const failed: string[] = [];
+			for (const { file, itemId } of deposits) {
+				const formData = new FormData();
+				formData.append("file", file);
+				formData.append("lotId", state.lotId);
+				if (itemId) formData.append("itemId", itemId);
+
+				const deposit = await depositLotDocument(formData);
+				if (deposit.error) failed.push(file.name);
+			}
+
+			return failed;
 		},
-		onSuccess: () => {
-			toast.success("Brouillon enregistré");
+		onSuccess: (failed) => {
+			if (failed.length === 0) toast.success("Brouillon enregistré");
+			else
+				toast.warning(
+					`Brouillon enregistré, ${failed.join(", ")} non déposé`,
+				);
+
 			setLot(EMPTY_LOT);
+			setLotFiles([]);
+			setItemFiles([null]);
 			queryClient.invalidateQueries();
 		},
 		onError: (error) => toast.error(error.message),
@@ -93,6 +204,13 @@ const LotDraftForm = () => {
 			),
 		}));
 
+	const setItemFile = (index: number, file: File | null) =>
+		setItemFiles((current) =>
+			current.map((entry, position) =>
+				position === index ? file : entry,
+			),
+		);
+
 	return (
 		<Card className="w-full gap-4">
 			<CardHeader className="flex flex-row items-start gap-3">
@@ -102,7 +220,10 @@ const LotDraftForm = () => {
 				<span className="flex flex-col gap-1">
 					<CardTitle className="text-base">Nouveau lot</CardTitle>
 					<CardDescription>
-						Décrivez le lot et ses articles. <br />
+						Décrivez le lot et les articles le composant. <br />
+						Les formats acceptés pour les documents sont : {
+							ACCEPT
+						}. <br />
 						Ceci est un brouillon et ne sera ancré sur la blockchain
 						qu&apos;au moment où vous le désirerez.
 					</CardDescription>
@@ -113,7 +234,7 @@ const LotDraftForm = () => {
 				<div className="grid gap-3 sm:grid-cols-2">
 					<Field
 						id="lot-name"
-						label="Nom du lot"
+						label="Nom"
 						value={lot.name}
 						onChange={(name) =>
 							setLot((current) => ({ ...current, name }))
@@ -158,7 +279,7 @@ const LotDraftForm = () => {
 					<div className="sm:col-span-2">
 						<Field
 							id="lot-description"
-							label="Description du lot"
+							label="Description"
 							value={lot.description}
 							onChange={(description) =>
 								setLot((current) => ({
@@ -170,11 +291,37 @@ const LotDraftForm = () => {
 							disabled={save.isPending}
 						/>
 					</div>
+
+					<div className="flex flex-col gap-3">
+						<span className="text-xs tracking-wide text-muted-foreground uppercase">
+							Documents
+						</span>
+
+						<FilePicker
+							label={`Documents : maximum ${MAX_LOT_DOCUMENTS}`}
+							files={lotFiles}
+							max={MAX_LOT_DOCUMENTS}
+							onPick={(picked) =>
+								setLotFiles((current) => [
+									...current,
+									...picked,
+								])
+							}
+							onDrop={(index) =>
+								setLotFiles((current) =>
+									current.filter(
+										(_, position) => position !== index,
+									),
+								)
+							}
+							disabled={save.isPending}
+						/>
+					</div>
 				</div>
 
 				<div className="flex flex-col gap-3">
 					<span className="text-xs tracking-wide text-muted-foreground uppercase">
-						Articles
+						Composition
 					</span>
 
 					{lot.items.map((item, index) => (
@@ -228,17 +375,39 @@ const LotDraftForm = () => {
 								disabled={
 									lot.items.length === 1 || save.isPending
 								}
-								onClick={() =>
+								onClick={() => {
 									setLot((current) => ({
 										...current,
 										items: current.items.filter(
 											(_, position) => position !== index,
 										),
-									}))
-								}
+									}));
+									setItemFiles((current) =>
+										current.filter(
+											(_, position) => position !== index,
+										),
+									);
+								}}
 							>
 								<XIcon />
 							</Button>
+
+							<div className="sm:col-span-4">
+								<FilePicker
+									label="Document : 1 seul autorisé"
+									max={1}
+									files={
+										itemFiles[index] ?
+											[itemFiles[index]]
+										:	[]
+									}
+									onPick={([file]) =>
+										setItemFile(index, file)
+									}
+									onDrop={() => setItemFile(index, null)}
+									disabled={save.isPending}
+								/>
+							</div>
 						</div>
 					))}
 
@@ -248,12 +417,13 @@ const LotDraftForm = () => {
 						disabled={
 							lot.items.length >= MAX_ITEMS || save.isPending
 						}
-						onClick={() =>
+						onClick={() => {
 							setLot((current) => ({
 								...current,
 								items: [...current.items, EMPTY_ITEM],
-							}))
-						}
+							}));
+							setItemFiles((current) => [...current, null]);
+						}}
 					>
 						<PlusIcon />
 						Ajouter un article

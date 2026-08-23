@@ -17,7 +17,9 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { MAX_LOT_DOCUMENTS } from "@/lib/lot";
 import { registryABI } from "@/lib/registry";
+import LotDocuments from "./LotDocuments";
 import LotQrCode from "./LotQrCode";
 
 const registryAddress = process.env
@@ -85,6 +87,8 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 
 		if (error || !plan) {
 			toast.error(error ?? "Publication impossible", { id: lot.id });
+			// The server may have just healed a lot already minted on chain.
+			queryClient.invalidateQueries();
 			return;
 		}
 
@@ -144,7 +148,7 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 									{item.index}
 								</span>
 
-								<span className="flex min-w-0 flex-col">
+								<span className="flex min-w-0 flex-col gap-1.5">
 									<span className="truncate text-sm font-medium text-foreground">
 										{item.name}
 									</span>
@@ -153,6 +157,16 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 											{item.description}
 										</span>
 									)}
+									<LotDocuments
+										lotId={lot.id}
+										itemId={item.id}
+										documents={
+											item.document ? [item.document] : []
+										}
+										editable={!minted && !lot.cid}
+										label="Document : 1 seul autorisé"
+										max={1}
+									/>
 								</span>
 
 								<span className="ml-auto shrink-0 text-sm font-medium text-foreground tabular-nums">
@@ -164,6 +178,14 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 							</li>
 						))}
 					</ul>
+
+					<LotDocuments
+						lotId={lot.id}
+						documents={lot.documents}
+						editable={!minted && !lot.cid}
+						label={`Documents : maximum ${MAX_LOT_DOCUMENTS}`}
+						max={MAX_LOT_DOCUMENTS}
+					/>
 
 					<div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-muted-foreground">
 						<span className="flex min-w-0 items-baseline gap-1.5">
@@ -186,9 +208,9 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 									Date
 								</span>
 								<span className="tabular-nums">
-									{new Date(lot.producedAt).toLocaleDateString(
-										"fr-FR",
-									)}
+									{new Date(
+										lot.producedAt,
+									).toLocaleDateString("fr-FR")}
 								</span>
 							</span>
 						)}
