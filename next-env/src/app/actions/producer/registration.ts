@@ -54,7 +54,7 @@ export async function getProducerDossier(): Promise<ProducerDossier | null> {
 			registryId > BigInt(0) ?
 				{ OR: [{ registryId }, { account: address }] }
 			:	{ account: address },
-		omit: { registryId: true, updatedAt: true },
+		omit: { registryId: true, updatedAt: true, groupId: true },
 	});
 
 	return (
