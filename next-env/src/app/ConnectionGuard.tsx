@@ -8,10 +8,8 @@ import NotConnectedHome from "@/components/connection/NotConnectedHome";
 /**
  * Root wallet gate.
  *
- * this guard leaves "/" open and instead
- * gates every OTHER route — a disconnected user hitting an app route (e.g.
- * /dashboard) is bounced back to "/". Pages below "/" can assume a connected
- * wallet.
+ * this guard leaves "/" open and instead gates every OTHER protected route
+ * A disconnected user hitting an app protected route is bounced back to "/".
  */
 export default function ConnectionGuard({ children }: { children: ReactNode }) {
 	const { isConnected } = useConnection();
@@ -33,6 +31,8 @@ export default function ConnectionGuard({ children }: { children: ReactNode }) {
 			router.replace("/dashboard");
 		}
 	}, [mounted, isConnected, isHome, isPublic, router]);
+
+	if (isPublic && !isHome) return <>{children}</>;
 
 	if (!mounted) return null;
 
