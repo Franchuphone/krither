@@ -1,6 +1,12 @@
-import { BadgeCheckIcon, ShieldAlertIcon } from "lucide-react";
+import {
+	BadgeCheckIcon,
+	ListCheckIcon,
+	ShieldAlertIcon,
+	SirenIcon,
+} from "lucide-react";
 import Detail from "@/components/reusable/Detail";
 import DocumentDialog from "@/components/dashboards/verify/DocumentDialog";
+import VerificationSequence from "@/components/dashboards/verify/VerificationSequence";
 import { Badge } from "@/components/ui/badge";
 import {
 	Card,
@@ -20,17 +26,19 @@ const LotDocuments = ({
 	if (documents.length === 0) return null;
 
 	return (
-		<ul className="grid w-full gap-3 grid-cols-[repeat(auto-fill,minmax(min(10rem,100%),1fr))]">
-			{documents.map((document) => (
-				<li key={document.cid} className="min-w-0">
-					<DocumentDialog
-						name={document.name}
-						cid={document.cid}
-						url={ipfsUrl(document.cid)}
-					/>
-				</li>
-			))}
-		</ul>
+		<div className="@container w-full">
+			<ul className="grid gap-3 @min-[200px]:grid-cols-[repeat(auto-fill,minmax(min(10rem,calc(50%-0.375rem)),1fr))]">
+				{documents.map((document) => (
+					<li key={document.cid} className="min-w-0">
+						<DocumentDialog
+							name={document.name}
+							cid={document.cid}
+							url={ipfsUrl(document.cid)}
+						/>
+					</li>
+				))}
+			</ul>
+		</div>
 	);
 };
 
@@ -66,7 +74,7 @@ export default async function VerifyPage({
 
 	if (!verified) {
 		return (
-			<div className="flex w-full max-w-3xl flex-col gap-8 text-left">
+			<VerificationSequence>
 				<Card className="w-full gap-4">
 					<CardHeader className="flex flex-row items-start gap-3">
 						<span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive">
@@ -86,7 +94,7 @@ export default async function VerifyPage({
 						</span>
 					</CardHeader>
 				</Card>
-			</div>
+			</VerificationSequence>
 		);
 	}
 
@@ -94,7 +102,34 @@ export default async function VerifyPage({
 	const properties = lot?.properties;
 
 	return (
-		<div className="flex w-full max-w-3xl flex-col gap-6 text-left">
+		<VerificationSequence>
+			<Card className="w-full gap-4">
+				<CardHeader className="flex flex-col items-center gap-3 sm:flex-row">
+					<div className="flex w-full items-center justify-between gap-3 sm:contents">
+						<span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+							<SirenIcon className="size-4.5" />
+						</span>
+						<CardTitle className="text-base">
+							Informations importantes
+						</CardTitle>
+					</div>
+				</CardHeader>
+				<CardContent>
+					<CardDescription className="max-w-[80ch] text-sm text-muted-foreground">
+						Les données sont hébergées sur un service de stockage
+						indépendant de Krither. <br />
+						Elles sont infalsifiables et vérifiables grâce à la
+						technologie blockchain. <br />
+						Les informations présentes sur cette page ont été
+						fournies par le producteur / fabricant, qui est seul
+						responsable de leur véracité. <br />
+						Krither ne peut être tenu responsable en cas de données
+						erronées. <br />
+						Vous avez un doute? Veuillez contacter notre support.
+					</CardDescription>
+				</CardContent>
+			</Card>
+
 			<Card className="w-full gap-4">
 				<CardHeader className="flex flex-col items-start gap-3 sm:flex-row">
 					<div className="flex w-full items-center justify-between gap-3 sm:contents">
@@ -106,8 +141,8 @@ export default async function VerifyPage({
 							className="sm:order-last sm:ml-auto"
 						>
 							{accredited ?
-								"Producteur accrédité"
-							:	"Accréditation retirée"}
+								"Producteur vérifié"
+							:	"Producteur non vérifié"}
 						</Badge>
 					</div>
 					<span className="flex flex-col gap-1">
@@ -158,17 +193,13 @@ export default async function VerifyPage({
 			</Card>
 
 			<Card className="w-full gap-4">
-				<CardHeader>
+				<CardHeader className="flex flex-col items-center gap-3 sm:flex-row">
+					<span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+						<ListCheckIcon className="size-4.5" />
+					</span>
 					<CardTitle className="text-base">
 						Composition : {items.length} articles
 					</CardTitle>
-					<CardDescription>
-						Chaque article a été vérifié sur la blockchain et les
-						documents associés sont disponibles sur un système
-						d&apos;archivage décentralisé. <br /> Les données sont
-						fournies par le producteur.
-					</CardDescription>
-					<CardDescription></CardDescription>
 				</CardHeader>
 
 				<CardContent>
@@ -218,6 +249,6 @@ export default async function VerifyPage({
 					</ul>
 				</CardContent>
 			</Card>
-		</div>
+		</VerificationSequence>
 	);
 }

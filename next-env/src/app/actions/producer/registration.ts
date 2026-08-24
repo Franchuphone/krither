@@ -1,5 +1,6 @@
 "use server";
 
+import { toString } from "qrcode";
 import { getAddress, isAddress } from "viem";
 import prisma from "@/lib/prisma";
 import {
@@ -14,6 +15,8 @@ import {
 import { registryABI } from "@/lib/registry";
 import { registryAddress, serverClient } from "@/lib/serverChain";
 import { requireProducer } from "@/lib/session";
+
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 export type SubmitState = {
 	ok?: boolean;
@@ -64,6 +67,23 @@ export async function getProducerDossier(): Promise<ProducerDossier | null> {
 			createdAt: producer.createdAt.toISOString(),
 		}
 	);
+}
+
+export async function producerQrCode() {
+	const account = await requireProducer();
+	if (!account) return null;
+
+	const registryId = await serverClient.readContract({
+		address: registryAddress,
+		abi: registryABI,
+		functionName: "producerByAddr",
+		args: [getAddress(account)],
+	});
+	if (registryId === BigInt(0)) return null;
+
+	const url = `${appUrl}/verify/${registryId}`;
+
+	return { url, svg: await toString(url, { type: "svg", margin: 1 }) };
 }
 
 export async function submitProducerRequest(

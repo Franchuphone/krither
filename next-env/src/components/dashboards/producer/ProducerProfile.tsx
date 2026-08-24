@@ -12,6 +12,7 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { LEGAL_FORM_OPTIONS } from "@/lib/producerRegistration";
+import ProducerQrCode from "./ProducerQrCode";
 
 const legalFormLabel = (value: string) =>
 	LEGAL_FORM_OPTIONS.find((option) => option.value === value)?.label ?? value;
@@ -71,6 +72,7 @@ const ProducerProfile = () => {
 				<div className="sm:col-span-2">
 					<Detail label="Wallet" value={dossier.account} />
 				</div>
+				<ProducerQrCode />
 			</CardContent>
 		</Card>
 	);
