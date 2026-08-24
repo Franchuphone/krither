@@ -1,6 +1,6 @@
 "use client";
 
-import { FileIcon } from "lucide-react";
+import PdfThumbnail from "@/components/dashboards/verify/PdfThumbnail";
 import {
 	Dialog,
 	DialogContent,
@@ -11,8 +11,6 @@ import {
 } from "@/components/ui/dialog";
 
 const isPdf = (name: string) => name.toLowerCase().endsWith(".pdf");
-
-const extensionOf = (name: string) => name.split(".").pop() ?? "";
 
 const labelClass =
 	"shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs font-medium tracking-wide text-muted-foreground uppercase";
@@ -31,15 +29,7 @@ const DocumentDialog = ({
 			<span className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-border bg-muted transition-colors group-hover:border-primary">
 				{
 					isPdf(name) ?
-						<span className="relative size-full text-muted-foreground">
-							<FileIcon
-								strokeWidth={1}
-								className="size-full p-2"
-							/>
-							<span className="absolute inset-0 flex items-center justify-center pt-[15%] text-xs font-semibold tracking-wide uppercase">
-								{extensionOf(name)}
-							</span>
-						</span>
+						<PdfThumbnail name={name} url={url} />
 						// eslint-disable-next-line @next/next/no-img-element
 					:	<img
 							src={url}
