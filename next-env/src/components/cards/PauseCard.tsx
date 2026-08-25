@@ -1,5 +1,5 @@
 import { CirclePause, type LucideIcon } from "lucide-react";
-import InfoCard from "@/components/reusable/InfoCard";
+import InfoCard from "@/components/cards/InfoCard";
 
 type PauseCardProps = {
 	label: string;

@@ -1,6 +1,6 @@
 import { CompassIcon } from "lucide-react";
-import HomeButton from "@/components/reusable/HomeButton";
-import StatusScreen from "@/components/reusable/StatusScreen";
+import HomeButton from "@/components/buttons/HomeButton";
+import StatusScreen from "@/components/nav/StatusScreen";
 
 export default function NotFound() {
 	return (

@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import SessionGate from "@/components/connection/SessionGate";
-import PillNav, { type PillNavItem } from "@/components/reusable/PillNav";
+import PillNav, { type PillNavItem } from "@/components/nav/PillNav";
 import LotDraftForm from "./LotDraftForm";
 import LotList from "./LotList";
 import LotSummary from "./LotSummary";

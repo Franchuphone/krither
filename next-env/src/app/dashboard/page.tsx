@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useRolesContext } from "@/components/connection/RoleGuard";
 import Unregistered from "@/components/dashboards/Unregistered";
-import LoadingAlert from "@/components/reusable/LoadingAlert";
+import LoadingAlert from "@/components/nav/LoadingAlert";
 import { areaHref, unlockedAreas } from "@/lib/dashboard";
 
 

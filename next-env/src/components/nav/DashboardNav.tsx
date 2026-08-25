@@ -2,10 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import { useRolesContext } from "@/components/connection/RoleGuard";
-import PillNav from "@/components/reusable/PillNav";
+import PillNav from "@/components/nav/PillNav";
 import { areaHref, unlockedAreas } from "@/lib/dashboard";
 
-export default function DashboardNav() {
+const DashboardNav = () => {
 	const roles = useRolesContext();
 	const pathname = usePathname();
 	const areas = unlockedAreas(roles);
@@ -36,4 +36,6 @@ export default function DashboardNav() {
 			label="Vos tableaux de bord"
 		/>
 	);
-}
+};
+
+export default DashboardNav;

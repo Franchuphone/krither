@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import RoleGuard from "@/components/connection/RoleGuard";
-import DashboardNav from "@/components/dashboards/DashboardNav";
+import DashboardNav from "@/components/nav/DashboardNav";
 
 // Header and Footer are fixed overlays (z-50), so the padding here is what keeps
 // the dashboard clear of them — without it the header sits on top of the nav and

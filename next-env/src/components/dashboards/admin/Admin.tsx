@@ -9,23 +9,18 @@ import {
 	PiggyBank,
 	SlidersHorizontal,
 	UserMinus,
-	UserPlus,
 	UserSearch,
 } from "lucide-react";
-import FundingSummary from "@/components/dashboards/FundingSummary";
-import WriteCallCard from "@/components/reusable/WriteCallCard";
-import { paymasterABI } from "@/lib/paymaster";
-import { registryABI } from "@/lib/registry";
+import PauseSummary from "@/components/dashboards/pauser/PauseSummary";
+import FundingSummary from "@/components/dashboards/paymaster/FundingSummary";
+import ReadCallCard from "@/components/cards/ReadCallCard";
+import Section from "@/components/nav/Section";
+import WriteCallCard from "@/components/cards/WriteCallCard";
+import { paymasterABI, paymasterAddress } from "@/lib/paymaster";
+import { registryABI, registryAddress } from "@/lib/registry";
 import { ROLE_OPTIONS } from "@/lib/roles";
-import Section from "../reusable/Section";
-import ReadCallCard from "../reusable/ReadCallCard";
-import PauseSummary from "./PauseSummary";
 import ProducerRequests from "./ProducerRequests";
 
-const registryAddress = process.env
-	.NEXT_PUBLIC_REGISTRY_PRODUCTION_ADDRESS as `0x${string}`;
-const paymasterAddress = process.env
-	.NEXT_PUBLIC_PAYMASTER_PRODUCTION_ADDRESS as `0x${string}`;
 
 const roleField = {
 	name: "role",

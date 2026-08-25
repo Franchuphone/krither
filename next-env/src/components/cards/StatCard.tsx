@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { formatEther } from "viem";
-import InfoCard from "@/components/reusable/InfoCard";
+import InfoCard from "@/components/cards/InfoCard";
 
 type StatCardProps = {
 	label: string;

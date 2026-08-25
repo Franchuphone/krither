@@ -1,3 +1,6 @@
+export const registryAddress = process.env
+	.NEXT_PUBLIC_REGISTRY_PRODUCTION_ADDRESS as `0x${string}`;
+
 export const registryABI = [
 	{
 		inputs: [

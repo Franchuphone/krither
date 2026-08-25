@@ -401,7 +401,7 @@ function ScrollHint() {
 	);
 }
 
-export default function NotConnectedHome() {
+const NotConnectedHome = () => {
 	const trackRef = useRef<HTMLDivElement>(null);
 	const { progress, reduced } = useScrollBeat(trackRef);
 
@@ -470,4 +470,6 @@ export default function NotConnectedHome() {
 			</div>
 		</main>
 	);
-}
+};
+
+export default NotConnectedHome;

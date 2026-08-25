@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDownIcon } from "lucide-react";
-import React from "react";
+import type { ReactNode } from "react";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -14,7 +14,7 @@ const Section = ({
 	defaultOpen = false,
 }: {
 	title: string;
-	children: React.ReactNode;
+	children: ReactNode;
 	defaultOpen?: boolean;
 }) => {
 	return (

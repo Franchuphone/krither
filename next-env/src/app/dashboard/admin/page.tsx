@@ -1,5 +1,5 @@
 import RoleAreaGuard from "@/components/connection/RoleAreaGuard";
-import Admin from "@/components/dashboards/Admin";
+import Admin from "@/components/dashboards/admin/Admin";
 
 export default function AdminPage() {
 	return (

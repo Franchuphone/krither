@@ -3,13 +3,8 @@
 import { Loader2Icon, ShieldCheckIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import {
-	Card,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
+import CardHeading from "@/components/cards/CardHeading";
+import { Card, CardFooter } from "@/components/ui/card";
 import { useSession } from "@/hooks/useSession";
 
 const SessionGate = ({
@@ -35,15 +30,11 @@ const SessionGate = ({
 
 	return (
 		<Card className="w-full gap-4">
-			<CardHeader className="flex flex-row items-start gap-3">
-				<span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-					<ShieldCheckIcon className="size-4.5" />
-				</span>
-				<span className="flex flex-col gap-1">
-					<CardTitle className="text-base">{title}</CardTitle>
-					<CardDescription>{description}</CardDescription>
-				</span>
-			</CardHeader>
+			<CardHeading
+				icon={ShieldCheckIcon}
+				title={title}
+				description={description}
+			/>
 			<CardFooter className="justify-end">
 				<Button disabled={signingIn} onClick={() => signIn()}>
 					{signingIn ?

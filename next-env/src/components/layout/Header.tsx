@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import ThemeToggle from "./ThemeToggle";
-import HeaderConnectButton from "../connection/HeaderConnectButton";
+import HeaderConnectButton from "@/components/buttons/HeaderConnectButton";
 
 // Fixed, transparent overlay bar. Sits on top of the full-bleed scroll landing
 // as well as the app pages.

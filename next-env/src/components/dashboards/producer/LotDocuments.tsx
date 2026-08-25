@@ -10,8 +10,7 @@ import {
 	type LotDocumentView,
 } from "@/app/actions/producer/lots";
 import { Button } from "@/components/ui/button";
-
-const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp";
+import { DOCUMENT_ACCEPT } from "@/lib/lot";
 
 const DocumentRow = ({
 	document,
@@ -105,7 +104,7 @@ const LotDocuments = ({
 					<input
 						ref={input}
 						type="file"
-						accept={ACCEPT}
+						accept={DOCUMENT_ACCEPT}
 						className="hidden"
 						onChange={(event) => {
 							const file = event.target.files?.[0];

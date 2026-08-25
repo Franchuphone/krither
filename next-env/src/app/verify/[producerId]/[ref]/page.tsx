@@ -4,10 +4,11 @@ import {
 	ShieldAlertIcon,
 	SirenIcon,
 } from "lucide-react";
-import Detail from "@/components/reusable/Detail";
+import Detail from "@/components/nav/Detail";
 import DocumentDialog from "@/components/dashboards/verify/DocumentDialog";
 import VerificationSequence from "@/components/dashboards/verify/VerificationSequence";
 import { Badge } from "@/components/ui/badge";
+import CardHeading from "@/components/cards/CardHeading";
 import {
 	Card,
 	CardContent,
@@ -76,23 +77,20 @@ export default async function VerifyPage({
 		return (
 			<VerificationSequence>
 				<Card className="w-full gap-4">
-					<CardHeader className="flex flex-row items-start gap-3">
-						<span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive">
-							<ShieldAlertIcon className="size-4.5" />
-						</span>
-						<span className="flex flex-col gap-1">
-							<CardTitle className="text-base">
-								Lot introuvable
-							</CardTitle>
-							<CardDescription>
+					<CardHeading
+						icon={ShieldAlertIcon}
+						tone="destructive"
+						title="Lot introuvable"
+						description={
+							<>
 								Aucun lot ne correspond aux références fournies.{" "}
 								<br />
 								Veuillez vérifier que vous avez saisi les bonnes
-								informations ou contactez le producteur pour
-								plus d&apos;informations.
-							</CardDescription>
-						</span>
-					</CardHeader>
+								informations ou contactez le producteur pour plus
+								d&apos;informations.
+							</>
+						}
+					/>
 				</Card>
 			</VerificationSequence>
 		);
@@ -131,11 +129,15 @@ export default async function VerifyPage({
 			</Card>
 
 			<Card className="w-full gap-4">
-				<CardHeader className="flex flex-col items-start gap-3 sm:flex-row">
-					<div className="flex w-full items-center justify-between gap-3 sm:contents">
-						<span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-							<BadgeCheckIcon className="size-4.5" />
-						</span>
+				<CardHeading
+					icon={BadgeCheckIcon}
+					stack="start"
+					title={lot?.name ?? `Lot ${verified.idLot}`}
+					description={
+						lot?.description ??
+						"Métadonnées indisponibles sur la passerelle IPFS."
+					}
+					badge={
 						<Badge
 							variant={accredited ? "success" : "muted"}
 							className="sm:order-last sm:ml-auto"
@@ -144,17 +146,8 @@ export default async function VerifyPage({
 								"Producteur vérifié"
 							:	"Producteur non vérifié"}
 						</Badge>
-					</div>
-					<span className="flex flex-col gap-1">
-						<CardTitle className="text-base">
-							{lot?.name ?? `Lot ${verified.idLot}`}
-						</CardTitle>
-						<CardDescription>
-							{lot?.description ??
-								"Métadonnées indisponibles sur la passerelle IPFS."}
-						</CardDescription>
-					</span>
-				</CardHeader>
+					}
+				/>
 
 				<CardContent className="grid gap-3 sm:grid-cols-2">
 					{properties?.producer && (
@@ -193,14 +186,11 @@ export default async function VerifyPage({
 			</Card>
 
 			<Card className="w-full gap-4">
-				<CardHeader className="flex flex-col items-center gap-3 sm:flex-row">
-					<span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-						<ListCheckIcon className="size-4.5" />
-					</span>
-					<CardTitle className="text-base">
-						Composition : {items.length} articles
-					</CardTitle>
-				</CardHeader>
+				<CardHeading
+					icon={ListCheckIcon}
+					stack="center"
+					title={`Composition : ${items.length} articles`}
+				/>
 
 				<CardContent>
 					<ul className="divide-y divide-border overflow-hidden rounded-md border border-border">

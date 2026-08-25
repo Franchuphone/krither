@@ -1,5 +1,5 @@
 import RoleAreaGuard from "@/components/connection/RoleAreaGuard";
-import Pauser from "@/components/dashboards/Pauser";
+import Pauser from "@/components/dashboards/pauser/Pauser";
 
 export default function PauserPage() {
 	return (

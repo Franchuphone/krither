@@ -23,13 +23,11 @@ const PillNav = ({
 	items,
 	activeKey,
 	onSelect,
-	className,
 	label,
 }: {
 	items: readonly PillNavItem[];
 	activeKey?: string;
 	onSelect?: (key: string) => void;
-	className?: string;
 	label?: string;
 }) => {
 	const container = useRef<HTMLElement>(null);
@@ -67,10 +65,7 @@ const PillNav = ({
 		<nav
 			ref={container}
 			aria-label={label}
-			className={cn(
-				"relative mx-auto flex flex-wrap items-center justify-center gap-1 rounded-full bg-card p-1 ring-1 ring-border",
-				className,
-			)}
+			className="relative mx-auto flex flex-wrap items-center justify-center gap-1 rounded-full bg-card p-1 ring-1 ring-border"
 		>
 			{indicator && (
 				<span

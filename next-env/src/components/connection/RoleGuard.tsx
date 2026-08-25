@@ -2,8 +2,9 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import { useConnection, useReadContract } from "wagmi";
-import LoadingAlert from "@/components/reusable/LoadingAlert";
-import { registryABI } from "@/lib/registry";
+import LoadingAlert from "@/components/nav/LoadingAlert";
+import { paymasterAddress } from "@/lib/paymaster";
+import { registryABI, registryAddress } from "@/lib/registry";
 import {
 	DEFAULT_ADMIN_ROLE,
 	PAUSER_ROLE,
@@ -30,13 +31,8 @@ export function useRolesContext() {
 	return role;
 }
 
-export default function RoleGuard({ children }: { children: ReactNode }) {
+const RoleGuard = ({ children }: { children: ReactNode }) => {
 	const { address: connected } = useConnection();
-
-	const registryAddress = process.env
-		.NEXT_PUBLIC_REGISTRY_PRODUCTION_ADDRESS as `0x${string}` | undefined;
-	const paymasterAddress = process.env
-		.NEXT_PUBLIC_PAYMASTER_PRODUCTION_ADDRESS as `0x${string}` | undefined;
 
 	if (!registryAddress || !paymasterAddress) {
 		throw new Error(
@@ -76,15 +72,6 @@ export default function RoleGuard({ children }: { children: ReactNode }) {
 		query: { enabled: !!registryAddress && !!connected },
 	});
 
-	// const { isSuccess: isVoter, isLoading: voterLoading } = useReadContract({
-	// 	address: registryAddress,
-	// 	abi: registryABI,
-	// 	functionName: "getVoter",
-	// 	args: [connected as `0x${string}`],
-	// 	account: connected,
-	// 	query: { enabled: !!registryAddress && !!connected, retry: false },
-	// });
-
 	const hasRole = isAdmin || isProducer || isPauser || isPaymaster;
 	const isResolving =
 		!connected ||
@@ -110,4 +97,6 @@ export default function RoleGuard({ children }: { children: ReactNode }) {
 			{children}
 		</RolesContext.Provider>
 	);
-}
+};
+
+export default RoleGuard;
