@@ -1,6 +1,7 @@
 import { parseEther } from "viem";
 
-/// `ether` is typed in ETH and converted to wei, so no one has to count zeroes.
+/// `ether` is typed in ETH and converted to wei, `days` in days and converted to
+/// seconds, so no one has to count zeroes.
 export type ContractFieldType =
 	| "address"
 	| "uint"
@@ -8,7 +9,10 @@ export type ContractFieldType =
 	| "bytes32"
 	| "string"
 	| "bool"
-	| "ether";
+	| "ether"
+	| "days";
+
+export const SECONDS_PER_DAY = BigInt(86_400);
 
 export type ContractField = {
 	name: string;
@@ -37,6 +41,7 @@ export function isFieldValid(field: ContractField, raw: string) {
 		case "address":
 			return ADDRESS.test(value);
 		case "uint":
+		case "days":
 			return UINT.test(value);
 		case "uint[]":
 			return UINT_LIST.test(value);
@@ -58,6 +63,8 @@ export function toArgument(field: ContractField, raw: string) {
 			return value as `0x${string}`;
 		case "uint":
 			return BigInt(value);
+		case "days":
+			return BigInt(value) * SECONDS_PER_DAY;
 		case "uint[]":
 			return value.split(",").map((item) => BigInt(item.trim()));
 		case "ether":

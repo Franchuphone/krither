@@ -1,6 +1,5 @@
 "use client";
 
-import { parseEther } from "viem";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -11,7 +10,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { isFieldValid, type ContractField } from "@/lib/contractFields";
+import {
+	isFieldValid,
+	toArgument,
+	type ContractField,
+} from "@/lib/contractFields";
 import { cn } from "@/lib/utils";
 
 const ContractFieldInput = ({
@@ -76,11 +79,13 @@ const ContractFieldInput = ({
 			/>
 		}
 
-		{field.type === "ether" && isFieldValid(field, value) && (
-			<p className="text-xs text-muted-foreground tabular-nums">
-				{parseEther(value.trim()).toString()} wei
-			</p>
-		)}
+		{(field.type === "ether" || field.type === "days") &&
+			isFieldValid(field, value) && (
+				<p className="text-xs text-muted-foreground tabular-nums">
+					{toArgument(field, value).toString()}{" "}
+					{field.type === "ether" ? "wei" : "secondes"}
+				</p>
+			)}
 	</div>
 );
 
