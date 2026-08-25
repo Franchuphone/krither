@@ -1,27 +1,12 @@
 "use client";
 
-import { Bitcoin, Container } from "lucide-react";
-import { useReadContract } from "wagmi";
-import { paymasterABI, paymasterAddress } from "@/lib/paymaster";
 import PauseCard from "@/components/cards/PauseCard";
 import TopCardLayout from "@/components/cards/TopCardLayout";
-import { registryABI, registryAddress } from "@/lib/registry";
-
-
+import { usePauseState } from "@/hooks/usePauseState";
+import { Bitcoin, Container } from "lucide-react";
 
 const PauseSummary = () => {
-	const { data: registryPause } = useReadContract({
-		address: registryAddress,
-		abi: registryABI,
-		functionName: "paused",
-		query: { enabled: !!registryAddress },
-	});
-	const { data: paymasterPause } = useReadContract({
-		address: paymasterAddress,
-		abi: paymasterABI,
-		functionName: "paused",
-		query: { enabled: !!paymasterAddress },
-	});
+	const { registryPause, paymasterPause } = usePauseState();
 
 	return (
 		<TopCardLayout>
