@@ -29,6 +29,7 @@ type WriteCallCardProps = {
 	successMessage: string;
 	/** Moves value out of Krither: colours the card as destructive. */
 	danger?: boolean;
+	disable?: boolean;
 };
 
 const WriteCallCard = ({
@@ -42,6 +43,7 @@ const WriteCallCard = ({
 	submitLabel,
 	successMessage,
 	danger,
+	disable,
 }: WriteCallCardProps) => {
 	const [values, setValues] = useState<Record<string, string>>(() =>
 		emptyValues(fields),
@@ -67,9 +69,10 @@ const WriteCallCard = ({
 			.map((field) => toArgument(field, values[field.name] ?? ""));
 
 		const valueField = fields.find((field) => field.asValue);
-		const value = valueField
-			? parseEther((values[valueField.name] ?? "0").trim())
-			: undefined;
+		const value =
+			valueField ?
+				parseEther((values[valueField.name] ?? "0").trim())
+			:	undefined;
 
 		writeContract({
 			address,
@@ -118,10 +121,12 @@ const WriteCallCard = ({
 				<Button
 					variant={danger ? "destructive" : "default"}
 					aria-label={submitLabel}
-					disabled={busy || invalidInput}
+					disabled={busy || invalidInput || disable}
 					onClick={submit}
 				>
-					{busy ? <Loader2Icon className="animate-spin" /> : submitLabel}
+					{busy ?
+						<Loader2Icon className="animate-spin" />
+					:	submitLabel}
 				</Button>
 			</CardFooter>
 		</Card>
