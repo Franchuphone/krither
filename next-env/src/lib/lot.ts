@@ -43,6 +43,8 @@ export const MAX_ITEMS = 50;
 /** Lot-level only: each item keeps its own single document on top. */
 export const MAX_LOT_DOCUMENTS = 5;
 
+export const DOCUMENT_ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp";
+
 export function normalizeLot(input: LotInput): LotInput {
 	return {
 		name: input.name.trim().replace(/\s+/g, " "),

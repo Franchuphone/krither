@@ -2,8 +2,8 @@
 
 import { TriangleAlertIcon } from "lucide-react";
 import { useEffect } from "react";
-import HomeButton from "@/components/reusable/HomeButton";
-import StatusScreen from "@/components/reusable/StatusScreen";
+import HomeButton from "@/components/buttons/HomeButton";
+import StatusScreen from "@/components/nav/StatusScreen";
 import { Button } from "@/components/ui/button";
 
 export default function Error({

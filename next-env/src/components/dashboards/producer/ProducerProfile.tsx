@@ -3,19 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Building2Icon } from "lucide-react";
 import { getProducerDossier } from "@/app/actions/producer/registration";
-import Detail from "@/components/reusable/Detail";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
-import { LEGAL_FORM_OPTIONS } from "@/lib/producerRegistration";
+import DossierDetails from "@/components/cards/DossierDetails";
+import CardHeading from "@/components/cards/CardHeading";
+import { Card, CardContent } from "@/components/ui/card";
+import { legalFormLabel } from "@/lib/producerRegistration";
 import ProducerQrCode from "./ProducerQrCode";
-
-const legalFormLabel = (value: string) =>
-	LEGAL_FORM_OPTIONS.find((option) => option.value === value)?.label ?? value;
 
 const ProducerProfile = () => {
 	const { data: dossier, isPending } = useQuery({
@@ -41,37 +33,19 @@ const ProducerProfile = () => {
 
 	return (
 		<Card className="w-full gap-4">
-			<CardHeader className="flex flex-row items-start gap-3">
-				<span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-					<Building2Icon className="size-4.5" />
-				</span>
-				<span className="flex flex-col gap-1">
-					<CardTitle className="text-base">
-						{dossier.companyName}
-					</CardTitle>
-					<CardDescription>
+			<CardHeading
+				icon={Building2Icon}
+				title={dossier.companyName}
+				description={
+					<>
 						{legalFormLabel(dossier.legalForm)} · dossier déposé le{" "}
 						{new Date(dossier.createdAt).toLocaleDateString("fr-FR")}
-					</CardDescription>
-				</span>
-			</CardHeader>
+					</>
+				}
+			/>
 
 			<CardContent className="grid gap-3 sm:grid-cols-2">
-				<Detail label="SIRET" value={dossier.siret} />
-				<Detail label="Code APE" value={dossier.apeCode} />
-				<Detail
-					label="Représentant légal"
-					value={dossier.representativeName}
-				/>
-				<Detail label="Email" value={dossier.email} />
-				<Detail label="Téléphone" value={dossier.phone} />
-				<Detail
-					label="Siège social"
-					value={`${dossier.street}, ${dossier.postalCode} ${dossier.city}, ${dossier.country}`}
-				/>
-				<div className="sm:col-span-2">
-					<Detail label="Wallet" value={dossier.account} />
-				</div>
+				<DossierDetails dossier={dossier} />
 				<ProducerQrCode />
 			</CardContent>
 		</Card>

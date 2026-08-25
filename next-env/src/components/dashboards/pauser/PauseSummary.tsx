@@ -2,16 +2,12 @@
 
 import { Bitcoin, Container } from "lucide-react";
 import { useReadContract } from "wagmi";
-import { paymasterABI } from "@/lib/paymaster";
-import { registryABI } from "@/lib/registry";
-import TopCardLayout from "../reusable/TopCardLayout";
-import PauseCard from "../reusable/PauseCard";
+import { paymasterABI, paymasterAddress } from "@/lib/paymaster";
+import PauseCard from "@/components/cards/PauseCard";
+import TopCardLayout from "@/components/cards/TopCardLayout";
+import { registryABI, registryAddress } from "@/lib/registry";
 
-const paymasterAddress = process.env
-	.NEXT_PUBLIC_PAYMASTER_PRODUCTION_ADDRESS as `0x${string}`;
 
-const registryAddress = process.env
-	.NEXT_PUBLIC_REGISTRY_PRODUCTION_ADDRESS as `0x${string}`;
 
 const PauseSummary = () => {
 	const { data: registryPause } = useReadContract({

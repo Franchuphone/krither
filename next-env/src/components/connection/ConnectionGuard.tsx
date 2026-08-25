@@ -8,8 +8,9 @@ import NotConnectedHome from "@/components/connection/NotConnectedHome";
 /**
  * Root wallet gate.
  *
- * this guard leaves "/" open and instead gates every OTHER protected route
- * A disconnected user hitting an app protected route is bounced back to "/".
+ * "/" and "/verify/*" stay public. Every other route requires a wallet: a
+ * disconnected visitor is bounced back to "/", where the connect wall shows.
+ * A connected visitor landing on "/" is sent on to "/dashboard".
  */
 export default function ConnectionGuard({ children }: { children: ReactNode }) {
 	const { isConnected } = useConnection();

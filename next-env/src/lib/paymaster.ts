@@ -1,3 +1,6 @@
+export const paymasterAddress = process.env
+	.NEXT_PUBLIC_PAYMASTER_PRODUCTION_ADDRESS as `0x${string}`;
+
 export const paymasterABI = [
 	{
 		inputs: [

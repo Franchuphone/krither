@@ -5,7 +5,6 @@ const CustomButton = ({
   path,
   text,
   variant,
-  onClick,
 }: {
   path: string;
   text: string;
@@ -16,16 +15,12 @@ const CustomButton = ({
     | "secondary"
     | "ghost"
     | "destructive";
-  onClick?: () => void;
 }) => {
   const router = useRouter();
   return (
     <Button
       type="button"
-      onClick={() => {
-        onClick?.();
-        router.push(path);
-      }}
+      onClick={() => router.push(path)}
       variant={variant}
       className="h-auto self-start px-4 py-2 text-xl"
     >

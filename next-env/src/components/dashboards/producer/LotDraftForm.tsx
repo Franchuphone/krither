@@ -16,17 +16,12 @@ import {
 	depositLotDocument,
 } from "@/app/actions/producer/lots";
 import { Button } from "@/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
+import CardHeading from "@/components/cards/CardHeading";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+	DOCUMENT_ACCEPT,
 	EMPTY_ITEM,
 	EMPTY_LOT,
 	isLotValid,
@@ -73,8 +68,6 @@ const Field = ({
 	</div>
 );
 
-const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp";
-
 const FilePicker = ({
 	label,
 	files,
@@ -116,7 +109,7 @@ const FilePicker = ({
 			<input
 				ref={input}
 				type="file"
-				accept={ACCEPT}
+				accept={DOCUMENT_ACCEPT}
 				multiple={max > 1}
 				className="hidden"
 				onChange={(event) => {
@@ -213,22 +206,19 @@ const LotDraftForm = () => {
 
 	return (
 		<Card className="w-full gap-4">
-			<CardHeader className="flex flex-row items-start gap-3">
-				<span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-					<PackagePlusIcon className="size-4.5" />
-				</span>
-				<span className="flex flex-col gap-1">
-					<CardTitle className="text-base">Nouveau lot</CardTitle>
-					<CardDescription>
+			<CardHeading
+				icon={PackagePlusIcon}
+				title="Nouveau lot"
+				description={
+					<>
 						Décrivez le lot et les articles le composant. <br />
-						Les formats acceptés pour les documents sont : {
-							ACCEPT
-						}. <br />
+						Les formats acceptés pour les documents sont :{" "}
+						{DOCUMENT_ACCEPT}. <br />
 						Ceci est un brouillon et ne sera ancré sur la blockchain
 						qu&apos;au moment où vous le désirerez.
-					</CardDescription>
-				</span>
-			</CardHeader>
+					</>
+				}
+			/>
 
 			<CardContent className="flex flex-col gap-4">
 				<div className="grid gap-3 sm:grid-cols-2">

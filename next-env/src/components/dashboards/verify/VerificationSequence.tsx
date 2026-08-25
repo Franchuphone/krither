@@ -2,13 +2,8 @@
 
 import { CheckIcon, LoaderCircleIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
+import CardHeading from "@/components/cards/CardHeading";
+import { Card, CardContent } from "@/components/ui/card";
 
 const steps = [
 	"Vérification du producteur",
@@ -46,20 +41,13 @@ const VerificationSequence = ({ children }: { children: ReactNode }) => {
 	return (
 		<div className="flex w-full max-w-3xl flex-col gap-6 text-left">
 			<Card className="w-full gap-4">
-				<CardHeader className="flex flex-col items-center gap-3 sm:flex-row">
-					<span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-						<LoaderCircleIcon className="size-4.5 animate-spin" />
-					</span>
-					<span className="flex flex-col gap-1">
-						<CardTitle className="text-base">
-							Vérification en cours
-						</CardTitle>
-						<CardDescription>
-							Contrôle des données du lot sur la blockchain et sur
-							le service de stockage décentralisé.
-						</CardDescription>
-					</span>
-				</CardHeader>
+				<CardHeading
+					icon={LoaderCircleIcon}
+					iconClassName="animate-spin"
+					stack="center"
+					title="Vérification en cours"
+					description="Contrôle des données du lot sur la blockchain et sur le service de stockage décentralisé."
+				/>
 
 				<CardContent>
 					<ul className="flex flex-col gap-4">

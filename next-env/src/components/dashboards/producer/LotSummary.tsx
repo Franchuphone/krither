@@ -4,8 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Boxes, PackageCheck } from "lucide-react";
 import { useConnection } from "wagmi";
 import { countProducerLots } from "@/app/actions/producer/lots";
-import InfoCard from "@/components/reusable/InfoCard";
-import TopCardLayout from "@/components/reusable/TopCardLayout";
+import InfoCard from "@/components/cards/InfoCard";
+import TopCardLayout from "@/components/cards/TopCardLayout";
 
 const LotSummary = () => {
 	const { address } = useConnection();

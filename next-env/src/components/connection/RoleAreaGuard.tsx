@@ -12,13 +12,13 @@ import type { RoleFlag } from "@/lib/dashboard";
  * any connected wallet could open /dashboard/admin by typing the URL. A wallet
  * missing the area's role is sent back to the dashboard overview.
  */
-export default function RoleAreaGuard({
+const RoleAreaGuard = ({
 	flag,
 	children,
 }: {
 	flag: RoleFlag;
 	children: ReactNode;
-}) {
+}) => {
 	const roles = useRolesContext();
 	const router = useRouter();
 	const unlocked = !!roles[flag];
@@ -32,4 +32,6 @@ export default function RoleAreaGuard({
 	if (!unlocked) return null;
 
 	return <>{children}</>;
-}
+};
+
+export default RoleAreaGuard;

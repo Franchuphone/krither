@@ -17,7 +17,7 @@ const formatEth = (wei: bigint) =>
 		.toFixed(4)
 		.replace(/\.?0+$/, "");
 
-export default function WalletButton() {
+const WalletButton = () => {
 	const { address, isConnected } = useConnection();
 	const { data: balance } = useBalance({ address });
 	const { caipNetwork } = useAppKitNetwork();
@@ -105,4 +105,6 @@ function WalletButtonTemplate({
 			{text}
 		</Button>
 	);
-}
+};
+
+export default WalletButton;

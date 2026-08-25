@@ -2,13 +2,11 @@
 
 import { Fuel, Lock } from "lucide-react";
 import { useReadContract } from "wagmi";
-import StatCard from "@/components/reusable/StatCard";
+import StatCard from "@/components/cards/StatCard";
+import TopCardLayout from "@/components/cards/TopCardLayout";
 import { entryPointABI } from "@/lib/entryPoint";
-import { paymasterABI } from "@/lib/paymaster";
-import TopCardLayout from "../reusable/TopCardLayout";
+import { paymasterABI, paymasterAddress } from "@/lib/paymaster";
 
-const paymasterAddress = process.env
-	.NEXT_PUBLIC_PAYMASTER_PRODUCTION_ADDRESS as `0x${string}`;
 
 /**
  * The two balances sponsorship depends on: the EntryPoint deposit pays for user

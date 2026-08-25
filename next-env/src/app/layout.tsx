@@ -1,23 +1,17 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
 import { Toaster } from "@/components/ui/sonner";
-import ThemeProvider from "./ThemeProvider";
-import AppKitProvider from "./AppKitProvider";
-import ConnectionGuard from "./ConnectionGuard";
+import ConnectionGuard from "@/components/connection/ConnectionGuard";
+import AppKitProvider from "@/components/providers/AppKitProvider";
+import ThemeProvider from "@/components/providers/ThemeProvider";
+// Layout is the app shell: Header on top, Footer at the bottom, both fixed
+// overlays, with the guarded page between them.
 import Layout from "@/components/layout/Layout";
-// Header/Footer + wallet chrome are intentionally NOT mounted yet — the
-// components exist under components/layout and components/connection and can be
-// dropped in around <ConnectionGuard> when we want them shown.
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
-
-const geistSans = Geist({
-	variable: "--font-geist-sans",
-	subsets: ["latin"],
-});
 
 const geistMono = Geist_Mono({
 	variable: "--font-geist-mono",
@@ -42,7 +36,6 @@ export default function RootLayout({
 			className={cn(
 				"h-full",
 				"antialiased",
-				geistSans.variable,
 				geistMono.variable,
 				"font-sans",
 				inter.variable,

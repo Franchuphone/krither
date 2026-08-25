@@ -1,10 +1,10 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnchorIcon, ChevronDownIcon, Loader2Icon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { useTrackedWrite } from "@/hooks/useTrackedWrite";
 import {
 	listProducerLots,
 	pinLotDraft,
@@ -18,12 +18,10 @@ import {
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { MAX_LOT_DOCUMENTS } from "@/lib/lot";
-import { registryABI } from "@/lib/registry";
+import { registryABI, registryAddress } from "@/lib/registry";
 import LotDocuments from "./LotDocuments";
 import LotQrCode from "./LotQrCode";
 
-const registryAddress = process.env
-	.NEXT_PUBLIC_REGISTRY_PRODUCTION_ADDRESS as `0x${string}`;
 
 type Lot = Awaited<ReturnType<typeof listProducerLots>>[number];
 
@@ -31,49 +29,18 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 	const queryClient = useQueryClient();
 	const [pinning, setPinning] = useState(false);
 
-	const {
-		mutate: mintLot,
-		data: hash,
-		isPending: signing,
-		error: writeError,
-	} = useWriteContract();
-
-	const {
-		isLoading: confirming,
-		isSuccess,
-		error: receiptError,
-	} = useWaitForTransactionReceipt({ hash });
-
-	const record = useMutation({
-		mutationFn: async () => {
-			const state = await recordLotMint(lot.id, hash as `0x${string}`);
-			if (state.error) throw new Error(state.error);
-		},
-		onSuccess: () => {
-			toast.success(`${lot.name} ancré`, { id: lot.id });
-			queryClient.invalidateQueries();
-		},
-		onError: (error) => toast.error(error.message, { id: lot.id }),
-	});
-
-	useEffect(() => {
-		if (isSuccess && record.isIdle) record.mutate();
-	}, [isSuccess, record]);
-
-	useEffect(() => {
-		if (confirming) toast.loading("Ancrage en cours", { id: lot.id });
-	}, [confirming, lot.id]);
-
-	useEffect(() => {
-		const error = writeError ?? receiptError;
-		if (!error) return;
-		toast.error(
-			"shortMessage" in error ? error.shortMessage : error.message,
-			{
-				id: lot.id,
+	const { write: mintLot, busy: writing } = useTrackedWrite({
+		toastId: lot.id,
+		pendingMessage: "Ancrage en cours",
+		successMessage: `${lot.name} ancré`,
+		onConfirmed: useCallback(
+			async (hash: `0x${string}`) => {
+				const state = await recordLotMint(lot.id, hash);
+				if (state.error) throw new Error(state.error);
 			},
-		);
-	}, [writeError, receiptError, lot.id]);
+			[lot.id],
+		),
+	});
 
 	const anchor = async () => {
 		setPinning(true);
@@ -107,7 +74,7 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 
 	const minted = lot.status === "MINTED";
 	const units = lot.items.reduce((total, item) => total + item.quantity, 0);
-	const busy = pinning || signing || confirming || record.isPending;
+	const busy = pinning || writing;
 
 	return (
 		<Collapsible render={<li className="bg-card" />}>

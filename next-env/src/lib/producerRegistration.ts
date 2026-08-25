@@ -44,6 +44,9 @@ export const LEGAL_FORM_OPTIONS = [
 
 export const SUPPORTED_COUNTRY = "FR";
 
+export const legalFormLabel = (value: string) =>
+	LEGAL_FORM_OPTIONS.find((option) => option.value === value)?.label ?? value;
+
 export const REGISTRATION_FIELDS: readonly RegistrationField[] = [
 	{
 		name: "companyName",

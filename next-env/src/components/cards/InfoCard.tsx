@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-export type InfoCardProps = {
+type InfoCardProps = {
 	label: string;
 	/** Undefined while the read is in flight. */
 	value?: string;

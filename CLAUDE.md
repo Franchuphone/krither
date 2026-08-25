@@ -20,12 +20,13 @@ pnpm per workspace. Compile Solidity through Hardhat (aarch64 — no standalone 
 
 Imported from the `voting-dapp/next-env` reference. Key files:
 
-- `src/app/AppKitProvider.tsx` — module-scope wallet setup. One `WagmiAdapter`
-  (`ssr: true`, `http()` pointed at the `/api/rpc` proxy) + a single
+- `src/components/providers/AppKitProvider.tsx` — module-scope wallet setup. One
+  `WagmiAdapter` (`ssr: true`, `http()` pointed at the `/api/rpc` proxy) + a single
   `createAppKit(...)`. Network is **Sepolia**. Nests `WagmiProvider` +
   `QueryClientProvider`.
-- `src/app/ThemeProvider.tsx` — `next-themes`, `attribute="class"`, system default.
-- `src/app/ConnectionGuard.tsx` — **adapted** from the reference. In voting-dapp
+- `src/components/providers/ThemeProvider.tsx` — `next-themes`, `attribute="class"`,
+  system default.
+- `src/components/connection/ConnectionGuard.tsx` — **adapted** from the reference. In voting-dapp
   `/` is itself the connect wall; in Krither **`/` is a PUBLIC marketing landing**
   (the scroll homepage) shown to everyone. The guard leaves `/` open and gates
   every *other* route, bouncing disconnected users back to `/`. Pages under any
@@ -34,27 +35,43 @@ Imported from the `voting-dapp/next-env` reference. Key files:
   `ThemeProvider → AppKitProvider → ConnectionGuard → page`, with `<Toaster/>`
   (sonner) outside the guard. `<html suppressHydrationWarning>`.
 
-### Built but intentionally NOT mounted yet
+Folder conventions: `src/app/` holds Next.js route files only (layouts, pages,
+error boundaries, `actions/`, `api/`); every component lives under
+`src/components/`. Dashboard components are grouped one folder per role area
+(`dashboards/admin/`, `producer/`, `pauser/`, `paymaster/`), matching the
+`DASHBOARD_AREAS` segments in `src/lib/dashboard.ts`. Shared components are split
+by kind into `components/cards/`, `components/buttons/` and `components/nav/`
+(there is no `reusable/` folder; `nav/` also holds the shared screen-level pieces
+`Detail`, `LoadingAlert` and `StatusScreen`). Cross-folder imports always use the
+`@/` alias, never `../`.
 
-Per current direction, the app chrome is written and ready but **not rendered**.
-When we want it shown, mount `Header` (and optionally `Footer`) around
-`ConnectionGuard` in `layout.tsx`:
+### App chrome
 
-- `src/components/layout/Header.tsx` — fixed transparent overlay bar: KRITHER
-  wordmark + `ThemeToggle` + `HeaderConnectButton`.
-- `src/components/layout/Footer.tsx`, `ThemeToggle.tsx`
-- `src/components/connection/HeaderConnectButton.tsx`, `WalletButton.tsx` —
-  wallet connect / account / network / balance controls (open AppKit modal).
+`src/components/layout/Layout.tsx` is the app shell and **is** mounted, wrapping
+`ConnectionGuard` in `layout.tsx`. It renders:
 
-Do not mount these until asked.
+- `Header.tsx` — fixed transparent overlay bar: logo + `HeaderConnectButton`. It
+  imports `ThemeToggle` without rendering it yet, kept on purpose for when the
+  toggle moves up here.
+- `Footer.tsx` — fixed overlay carrying the `ThemeToggle`, so that is where the
+  light/dark switch currently lives.
+- `src/components/buttons/HeaderConnectButton.tsx`, `WalletButton.tsx` — wallet
+  connect / account / network / balance controls (open AppKit modal).
 
 ### Homepage
 
-`src/app/page.tsx` is a scroll-stack "pinned beats" landing (no.ca / arpalis
-style): big KRITHER, one gigantic letter per beat with a line of info, final
-name. Scroll-snap markers + `scroll-snap-type: y mandatory` keep it resting on a
-beat; `prefers-reduced-motion` falls back to stacked sections. Uses only the
-design tokens in `globals.css` (teal `--primary`, hue ~223) — no hardcoded hex.
+The landing lives in `src/components/connection/NotConnectedHome.tsx`, which
+`ConnectionGuard` renders at `/` for a disconnected visitor. It is a scroll-stack
+"pinned beats" landing (no.ca / arpalis style): big KRITHER, one gigantic letter
+per beat with a line of info, final name. Scroll-snap markers +
+`scroll-snap-type: y mandatory` keep it resting on a beat;
+`prefers-reduced-motion` falls back to stacked sections. Uses only the design
+tokens in `globals.css` (teal `--primary`, hue ~223) — no hardcoded hex.
+
+**`src/app/page.tsx` is deliberately empty, do not move the landing into it.**
+The guard redirects a connected wallet from `/` to `/dashboard` from an effect,
+so whatever `page.tsx` renders is shown for one frame first. Empty keeps that
+frame invisible; putting the landing there flashes it before the dashboard.
 
 ## Colours / design tokens
 

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { producerQrCode } from "@/app/actions/producer/registration";
+import QrPanel from "@/components/cards/QrPanel";
 
 const ProducerQrCode = () => {
 	const { data } = useQuery({
@@ -12,17 +13,12 @@ const ProducerQrCode = () => {
 	if (!data?.svg) return null;
 
 	return (
-		<div className="flex flex-col items-center gap-2 border-t border-border pt-4 sm:col-span-2">
-			<div
-				className="pt-2 size-40 rounded-md bg-white p-2 [&_svg]:size-full"
-				dangerouslySetInnerHTML={{ __html: data.svg }}
-			/>
-			<span className="text-xs break-all text-muted-foreground">
-				<a href={data.url} target="_blank" rel="noopener noreferrer">
-					Testez votre QR en cliquant ici
-				</a>
-			</span>
-		</div>
+		<QrPanel
+			svg={data.svg}
+			url={data.url}
+			label="Testez votre QR en cliquant ici"
+			className="border-t border-border pt-4 sm:col-span-2"
+		/>
 	);
 };
 
