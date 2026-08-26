@@ -51,9 +51,7 @@ const queryClient = new QueryClient();
 export default function AppKitProvider({ children }: { children: ReactNode }) {
 	return (
 		<WagmiProvider config={wagmiAdapter.wagmiConfig as unknown as Config}>
-			<QueryClientProvider client={queryClient}>
-				{children}
-			</QueryClientProvider>
+			<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 		</WagmiProvider>
 	);
 }
