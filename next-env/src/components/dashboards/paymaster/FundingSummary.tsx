@@ -1,19 +1,16 @@
 "use client";
 
-import { Fuel, Lock } from "lucide-react";
+import { Fuel, Lock, Wallet } from "lucide-react";
 import { useReadContract } from "wagmi";
 import StatCard from "@/components/cards/StatCard";
 import TopCardLayout from "@/components/cards/TopCardLayout";
+import { usePaymasterState } from "@/hooks/usePaymasterState";
 import { entryPointABI } from "@/lib/entryPoint";
 import { paymasterABI, paymasterAddress } from "@/lib/paymaster";
 
-
-/**
- * The two balances sponsorship depends on: the EntryPoint deposit pays for user
- * operations, the stake is what lets the paymaster be used at all. Either one
- * empty and nothing gets sponsored, so both sit above the admin controls.
- */
 const FundingSummary = () => {
+	const { balance } = usePaymasterState();
+
 	const { data: entryPoint } = useReadContract({
 		address: paymasterAddress,
 		abi: paymasterABI,
@@ -30,7 +27,7 @@ const FundingSummary = () => {
 	});
 
 	return (
-		<TopCardLayout>
+		<TopCardLayout columns={3}>
 			<StatCard
 				label="Dépôt EntryPoint"
 				amount={depositInfo?.deposit}
@@ -46,6 +43,12 @@ const FundingSummary = () => {
 					:	"Déverrouillé, le retrait est ouvert."
 				}
 				icon={Lock}
+			/>
+			<StatCard
+				label="Solde du contrat"
+				amount={balance}
+				hint="Revenus d'abonnement disponibles."
+				icon={Wallet}
 			/>
 		</TopCardLayout>
 	);
