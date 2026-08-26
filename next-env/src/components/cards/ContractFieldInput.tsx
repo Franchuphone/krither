@@ -56,9 +56,7 @@ const ContractFieldInput = ({
 				disabled={disabled}
 			>
 				<SelectTrigger id={id} className="w-full">
-					<SelectValue
-						placeholder={field.placeholder ?? "Sélectionner"}
-					/>
+					<SelectValue placeholder={field.placeholder ?? "Sélectionner"} />
 				</SelectTrigger>
 				<SelectContent>
 					{field.options.map((option) => (
@@ -79,13 +77,13 @@ const ContractFieldInput = ({
 			/>
 		}
 
-		{(field.type === "ether" || field.type === "days") &&
+		{/* {(field.type === "ether" || field.type === "days") &&
 			isFieldValid(field, value) && (
 				<p className="text-xs text-muted-foreground tabular-nums">
 					{toArgument(field, value).toString()}{" "}
 					{field.type === "ether" ? "wei" : "secondes"}
 				</p>
-			)}
+			)} */}
 	</div>
 );
 

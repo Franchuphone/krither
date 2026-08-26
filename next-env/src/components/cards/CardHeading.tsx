@@ -60,7 +60,11 @@ const CardHeading = ({
 
 			<span className={cn("flex flex-col gap-1", action && "flex-1")}>
 				<CardTitle className="text-base">{title}</CardTitle>
-				{description && <CardDescription>{description}</CardDescription>}
+				{description && (
+					<CardDescription className="whitespace-pre-line">
+						{description}
+					</CardDescription>
+				)}
 			</span>
 
 			{action}
