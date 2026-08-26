@@ -13,7 +13,7 @@ import {
 const isPdf = (name: string) => name.toLowerCase().endsWith(".pdf");
 
 const labelClass =
-	"shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs font-medium tracking-wide text-muted-foreground uppercase";
+	"shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs font-medium tracking-kicker text-muted-foreground uppercase";
 
 const DocumentDialog = ({
 	name,

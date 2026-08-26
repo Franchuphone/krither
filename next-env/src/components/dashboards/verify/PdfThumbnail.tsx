@@ -7,7 +7,7 @@ const extensionOf = (name: string) => name.split(".").pop() ?? "";
 const PdfThumbnail = ({ name, url }: { name: string; url: string }) => (
 	<span className="relative size-full overflow-hidden ">
 		<span className="flex size-full flex-col items-center justify-center gap-2 bg-linear-to-b from-muted to-muted/30 text-primary/70 transition-colors group-hover:text-primary">
-			<FileTextIcon strokeWidth={1.25} className="size-[70%]" />
+			<FileTextIcon className="size-[70%]" />
 			<span className="rounded-sm bg-background/70 px-1.5 py-0.5 text-[0.625rem] font-semibold tracking-widest text-muted-foreground uppercase">
 				{extensionOf(name)}
 			</span>

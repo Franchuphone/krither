@@ -28,7 +28,7 @@ const InfoCard = ({
 		<Card className="w-full gap-3">
 			<div className="flex items-center gap-2 px-(--card-spacing) text-muted-foreground">
 				<Icon className="size-4" />
-				<span className="text-xs font-medium tracking-wide uppercase">
+				<span className="text-xs font-medium tracking-kicker uppercase">
 					{label}
 				</span>
 			</div>

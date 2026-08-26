@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Inter } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
@@ -13,8 +13,8 @@ import Layout from "@/components/layout/Layout";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
-const geistMono = Geist_Mono({
-	variable: "--font-geist-mono",
+const jetBrainsMono = JetBrains_Mono({
+	variable: "--font-jetbrains-mono",
 	subsets: ["latin"],
 });
 
@@ -36,7 +36,7 @@ export default function RootLayout({
 			className={cn(
 				"h-full",
 				"antialiased",
-				geistMono.variable,
+				jetBrainsMono.variable,
 				"font-sans",
 				inter.variable,
 			)}

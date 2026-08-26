@@ -1,15 +1,17 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import ThemeToggle from "./ThemeToggle";
+import { KritherLockupHorizontal, KritherMarkBold } from "@/components/brand/Logo";
 import HeaderConnectButton from "@/components/buttons/HeaderConnectButton";
 
 const TOP_THRESHOLD = 8;
 
 const Header = () => {
 	const [atTop, setAtTop] = useState(true);
+	const isLanding = usePathname() === "/";
 
 	useEffect(() => {
 		let frame = 0;
@@ -50,14 +52,9 @@ const Header = () => {
 					aria-label="Krither home"
 					className="flex items-center transition-opacity hover:opacity-70"
 				>
-					<Image
-						src="/logo/logo.png"
-						alt="Krither"
-						width={552}
-						height={488}
-						priority
-						className="h-12 w-auto sm:h-14 dark:brightness-[2.6]"
-					/>
+					{isLanding ?
+						<KritherMarkBold className="h-11 w-auto text-foreground sm:h-12" />
+					:	<KritherLockupHorizontal className="h-11 w-auto text-foreground sm:h-12" />}
 				</Link>
 				<div className="flex items-center gap-3">
 					<ThemeToggle />
