@@ -1,13 +1,49 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import ThemeToggle from "./ThemeToggle";
 import HeaderConnectButton from "@/components/buttons/HeaderConnectButton";
 
-// Fixed, transparent overlay bar. Sits on top of the full-bleed scroll landing
-// as well as the app pages.
+const TOP_THRESHOLD = 8;
+
 const Header = () => {
+	const [atTop, setAtTop] = useState(true);
+
+	useEffect(() => {
+		let frame = 0;
+
+		const read = () => {
+			frame = 0;
+			setAtTop(window.scrollY <= TOP_THRESHOLD);
+		};
+
+		const onScroll = () => {
+			if (frame) return;
+			frame = window.requestAnimationFrame(read);
+		};
+
+		read();
+		window.addEventListener("scroll", onScroll, { passive: true });
+		window.addEventListener("resize", onScroll, { passive: true });
+
+		return () => {
+			if (frame) window.cancelAnimationFrame(frame);
+			window.removeEventListener("scroll", onScroll);
+			window.removeEventListener("resize", onScroll);
+		};
+	}, []);
+
 	return (
-		<header className="fixed inset-x-0 top-0 z-50">
+		<header
+			aria-hidden={!atTop}
+			className={`fixed inset-x-0 top-0 z-50 transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none ${
+				atTop ?
+					"translate-y-0 opacity-100"
+				:	"pointer-events-none -translate-y-full opacity-0"
+			}`}
+		>
 			<nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 sm:px-10">
 				<Link
 					href="/"
@@ -24,6 +60,7 @@ const Header = () => {
 					/>
 				</Link>
 				<div className="flex items-center gap-3">
+					<ThemeToggle />
 					<HeaderConnectButton />
 				</div>
 			</nav>

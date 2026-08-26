@@ -49,16 +49,15 @@ const LETTERS: Omit<LetterBeat, "kind">[] = [
 	{
 		char: "R",
 		word: "Référencé",
-		text: "Chaque produit est inscrit sur la blockchain, signé par celles et ceux qui l’ont réellement fabriqué",
+		text: "Chaque produit est inscrit sur la blockchain, enregistré par celles et ceux qui l’ont réellement fabriqué",
 	},
 	{
 		char: "I",
 		word: "Immuable",
 		text: (
 			<>
-				Une fois écrit, un enregistrement ne peut être ni modifié, ni
-				supprimé, ni falsifié.{" "}
-				<strong className="font-bold">Jamais</strong>
+				Une fois enregistré, une inscription ne peut être ni modifiée, ni
+				supprimée, ni falsifiée. <strong className="font-bold">Jamais</strong>
 			</>
 		),
 	},
@@ -75,12 +74,12 @@ const LETTERS: Omit<LetterBeat, "kind">[] = [
 	{
 		char: "E",
 		word: "Équité",
-		text: "Du champ au rayon, la valeur revient à celles et ceux qui la créent, sans intermédiaire qui s’interpose",
+		text: "Du champ au consommateur, de l'atelier à l'acheteur, la valeur revient à celles et ceux qui la créent, sans intermédiaire qui s’interpose",
 	},
 	{
 		char: "R",
 		word: "Réalité",
-		text: "Ce qui est annoncé est ce qui s’est réellement passé, prouvé et infalsifiable, du fabricant jusqu’à l’acheteur",
+		text: "Les informations affichées sont celles réellement fournies par le producteur, vérifiées et infalsifiables",
 	},
 ];
 
@@ -118,11 +117,7 @@ function useScrollBeat(trackRef: React.RefObject<HTMLDivElement | null>) {
 			const track = trackRef.current;
 			if (!track) return;
 			const total = track.offsetHeight - window.innerHeight;
-			const scrolled = clamp(
-				-track.getBoundingClientRect().top,
-				0,
-				total,
-			);
+			const scrolled = clamp(-track.getBoundingClientRect().top, 0, total);
 			const p = total > 0 ? (scrolled / total) * (BEATS.length - 1) : 0;
 			setProgress(p);
 		};
@@ -163,7 +158,7 @@ function HeroContent({
 					transform: `translateY(${copyShift}px)`,
 				}}
 			>
-				Traçabilité blockchain de la chaîne d&apos;approvisionnement
+				Traçabilité blockchain de la chaîne de production
 			</p>
 			<h1 className="text-[19vw] font-extrabold leading-none tracking-tighter text-foreground sm:text-[16vw] md:text-[14vw]">
 				{NAME}
@@ -175,8 +170,8 @@ function HeroContent({
 					transform: `translateY(${copyShift}px)`,
 				}}
 			>
-				Transparente et infalsifiable, pour celles et ceux qui
-				nourrissent et façonnent notre monde
+				Transparente et infalsifiable, pour celles et ceux qui nourrissent et
+				façonnent notre monde
 			</p>
 		</div>
 	);
@@ -220,9 +215,7 @@ function LetterContent({
 				<span
 					className={[
 						"mb-6 font-mono text-sm tracking-[0.3em] uppercase",
-						inverted ?
-							"text-primary-foreground/70"
-						:	"text-muted-foreground",
+						inverted ? "text-primary-foreground/70" : "text-muted-foreground",
 					].join(" ")}
 				>
 					{String(index).padStart(2, "0")} /{" "}
@@ -234,9 +227,7 @@ function LetterContent({
 				<p
 					className={[
 						"mt-8 max-w-xl text-lg leading-relaxed sm:text-xl",
-						inverted ?
-							"text-primary-foreground/85"
-						:	"text-muted-foreground",
+						inverted ? "text-primary-foreground/85" : "text-muted-foreground",
 					].join(" ")}
 				>
 					{beat.text}
@@ -277,7 +268,7 @@ function FinalContent({
 					transform: `translateY(${copyShift}px)`,
 				}}
 			>
-				De l&apos;origine au rayon, sur la blockchain
+				De l&apos;origine jusqu&apos;à vous, sur la blockchain
 			</p>
 			{/* Animation is gated on `active`: the classes (and the fade-in) only
           apply once the user actually arrives on this beat, instead of firing
@@ -294,7 +285,7 @@ function FinalContent({
 				// Invisible off-beat, so keep it out of the tab order too.
 				tabIndex={active ? 0 : -1}
 				className={cn(
-					"mt-25 h-auto p-4 text-4xl",
+					"mt-12 h-auto p-2.5 text-lg sm:mt-25 sm:p-4 sm:text-4xl",
 					active ?
 						"animate-in fade-in-0 slide-in-from-bottom-2 delay-1000 duration-2000 fill-mode-both"
 					:	"opacity-0",
@@ -447,12 +438,7 @@ const NotConnectedHome = () => {
 
 				<div className="sticky top-0 h-screen w-full overflow-hidden">
 					{BEATS.map((beat, i) => (
-						<BeatLayer
-							key={i}
-							beat={beat}
-							index={i}
-							progress={progress}
-						/>
+						<BeatLayer key={i} beat={beat} index={i} progress={progress} />
 					))}
 
 					{/* Scroll progress bar. */}
