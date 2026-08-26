@@ -144,7 +144,6 @@ export default async function VerifyPage({
 							<LotDocuments documents={lot.documents} />
 						</div>
 					)}
-					le s
 				</CardContent>
 			</Card>
 
