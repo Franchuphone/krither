@@ -93,7 +93,7 @@ function Unregistered() {
 			<h1 className="text-3xl font-bold tracking-tight text-foreground">
 				{title}
 			</h1>
-			<p className="max-w-md text-muted-foreground">{text}</p>
+			<p className="max-w-md text-foreground-secondary">{text}</p>
 			<p className="text-sm text-muted-foreground">
 				{request.companyName} : déposé le{" "}
 				{new Date(request.createdAt).toLocaleDateString("fr-FR")}

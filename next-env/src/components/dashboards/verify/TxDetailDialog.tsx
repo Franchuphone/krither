@@ -34,7 +34,7 @@ const LinkDetail = ({
 	href: string;
 }) => (
 	<div className="flex flex-col gap-0.5">
-		<span className="text-xs tracking-wide text-muted-foreground uppercase">
+		<span className="text-xs tracking-kicker text-muted-foreground uppercase">
 			{label}
 		</span>
 		<a
@@ -105,7 +105,7 @@ const TxDetailDialog = ({
 				</div>
 
 				<section className="flex flex-col gap-2">
-					<h3 className="text-xs tracking-wide text-muted-foreground uppercase">
+					<h3 className="text-xs tracking-kicker text-muted-foreground uppercase">
 						Événements émis ({verifiedTx.events.length})
 					</h3>
 
@@ -118,7 +118,7 @@ const TxDetailDialog = ({
 								<dl className="grid gap-x-3 gap-y-1 sm:grid-cols-[minmax(7rem,auto)_1fr]">
 									{event.args.map((arg) => (
 										<Fragment key={arg.name}>
-											<dt className="text-xs tracking-wide text-muted-foreground uppercase">
+											<dt className="text-xs tracking-kicker text-muted-foreground uppercase">
 												{arg.name}
 											</dt>
 											<dd className="text-xs break-all text-foreground">

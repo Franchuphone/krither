@@ -164,7 +164,7 @@ function HeroContent({
 				{NAME}
 			</h1>
 			<p
-				className="mt-8 max-w-md text-lg text-muted-foreground sm:text-xl"
+				className="mt-8 max-w-md text-lg text-foreground-secondary sm:text-xl"
 				style={{
 					opacity: copyOpacity,
 					transform: `translateY(${copyShift}px)`,
@@ -215,7 +215,7 @@ function LetterContent({
 				<span
 					className={[
 						"mb-6 font-mono text-sm tracking-[0.3em] uppercase",
-						inverted ? "text-primary-foreground/70" : "text-muted-foreground",
+						inverted ? "text-primary-foreground" : "text-muted-foreground",
 					].join(" ")}
 				>
 					{String(index).padStart(2, "0")} /{" "}
@@ -227,7 +227,7 @@ function LetterContent({
 				<p
 					className={[
 						"mt-8 max-w-xl text-lg leading-relaxed sm:text-xl",
-						inverted ? "text-primary-foreground/85" : "text-muted-foreground",
+						inverted ? "text-primary-foreground/85" : "text-foreground-secondary",
 					].join(" ")}
 				>
 					{beat.text}
@@ -238,7 +238,7 @@ function LetterContent({
 				aria-hidden
 				className={[
 					"absolute bottom-8 right-8 text-2xl font-bold sm:bottom-12 sm:right-14",
-					inverted ? "text-primary-foreground/60" : "text-primary/60",
+					inverted ? "text-primary-foreground/80" : "text-primary",
 				].join(" ")}
 			>
 				{beat.char}

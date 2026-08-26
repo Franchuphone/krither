@@ -25,7 +25,15 @@ import LotQrCode from "./LotQrCode";
 
 type Lot = Awaited<ReturnType<typeof listProducerLots>>[number];
 
-const LotRow = ({ lot }: { lot: Lot }) => {
+const LotRow = ({
+	lot,
+	open,
+	onOpenChange,
+}: {
+	lot: Lot;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+}) => {
 	const queryClient = useQueryClient();
 	const [pinning, setPinning] = useState(false);
 
@@ -77,7 +85,13 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 	const busy = pinning || writing;
 
 	return (
-		<Collapsible render={<li className="bg-card" />}>
+		<Collapsible
+			open={open}
+			onOpenChange={onOpenChange}
+			render={
+				<li className="border-l-2 border-l-transparent bg-card transition-colors data-open:border-l-primary" />
+			}
+		>
 			<CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/50">
 				<ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-panel-open:rotate-180" />
 
@@ -156,14 +170,14 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 
 					<div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-muted-foreground">
 						<span className="flex min-w-0 items-baseline gap-1.5">
-							<span className="rounded bg-muted px-1.5 py-0.5 font-medium tracking-wide uppercase">
+							<span className="rounded bg-muted px-1.5 py-0.5 font-medium tracking-kicker uppercase">
 								QTT
 							</span>
 							<span className="tabular-nums">{units} unités</span>
 						</span>
 						{lot.zone && (
 							<span className="flex min-w-0 items-baseline gap-1.5">
-								<span className="rounded bg-muted px-1.5 py-0.5 font-medium tracking-wide uppercase">
+								<span className="rounded bg-muted px-1.5 py-0.5 font-medium tracking-kicker uppercase">
 									Zone
 								</span>
 								<span className="truncate">{lot.zone}</span>
@@ -171,7 +185,7 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 						)}
 						{lot.producedAt && (
 							<span className="flex min-w-0 items-baseline gap-1.5">
-								<span className="rounded bg-muted px-1.5 py-0.5 font-medium tracking-wide uppercase">
+								<span className="rounded bg-muted px-1.5 py-0.5 font-medium tracking-kicker uppercase">
 									Date
 								</span>
 								<span className="tabular-nums">
@@ -183,7 +197,7 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 						)}
 						{lot.cid && (
 							<span className="flex min-w-0 items-baseline gap-1.5">
-								<span className="rounded bg-muted px-1.5 py-0.5 font-medium tracking-wide uppercase">
+								<span className="rounded bg-muted px-1.5 py-0.5 font-medium tracking-kicker uppercase">
 									CID
 								</span>
 								<span className="break-all">{lot.cid}</span>
@@ -213,6 +227,7 @@ const LotRow = ({ lot }: { lot: Lot }) => {
 };
 
 const LotList = () => {
+	const [openId, setOpenId] = useState<string | null>(null);
 	const { data: lots, isPending } = useQuery({
 		queryKey: ["producer-lots-list"],
 		queryFn: listProducerLots,
@@ -237,7 +252,12 @@ const LotList = () => {
 	return (
 		<ul className="divide-y divide-border overflow-hidden rounded-md border border-border">
 			{lots.map((lot) => (
-				<LotRow key={lot.id} lot={lot} />
+				<LotRow
+					key={lot.id}
+					lot={lot}
+					open={openId === lot.id}
+					onOpenChange={(next) => setOpenId(next ? lot.id : null)}
+				/>
 			))}
 		</ul>
 	);
