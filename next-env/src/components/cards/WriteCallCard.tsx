@@ -30,6 +30,7 @@ type WriteCallCardProps = {
 	/** Moves value out of Krither: colours the card as destructive. */
 	danger?: boolean;
 	disable?: boolean;
+	validate?: (values: Record<string, string>) => string | null;
 };
 
 const WriteCallCard = ({
@@ -44,6 +45,7 @@ const WriteCallCard = ({
 	successMessage,
 	danger,
 	disable,
+	validate,
 }: WriteCallCardProps) => {
 	const [values, setValues] = useState<Record<string, string>>(() =>
 		emptyValues(fields),
@@ -52,6 +54,8 @@ const WriteCallCard = ({
 	const invalidInput = fields.some(
 		(field) => !isFieldValid(field, values[field.name] ?? ""),
 	);
+
+	const blocked = invalidInput ? null : (validate?.(values) ?? null);
 
 	const { write: writeContract, busy } = useTrackedWrite({
 		toastId: `write-${functionName}`,
@@ -117,11 +121,14 @@ const WriteCallCard = ({
 				</CardContent>
 			)}
 
-			<CardFooter className="justify-end">
+			<CardFooter className="justify-end gap-3">
+				{blocked && (
+					<p className="mr-auto text-xs text-destructive">{blocked}</p>
+				)}
 				<Button
 					variant={danger ? "destructive" : "default"}
 					aria-label={submitLabel}
-					disabled={busy || invalidInput || disable}
+					disabled={busy || invalidInput || disable || !!blocked}
 					onClick={submit}
 				>
 					{busy ?

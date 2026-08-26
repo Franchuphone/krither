@@ -4,7 +4,7 @@ import { useState } from "react";
 import PauseSummary from "./PauseSummary";
 import WriteCallCard from "@/components/cards/WriteCallCard";
 import { registryABI, registryAddress } from "@/lib/registry";
-import { Bitcoin, Container, Pause } from "lucide-react";
+import { Bitcoin, Container, Pause, Play } from "lucide-react";
 import PillNav, { PillNavItem } from "@/components/nav/PillNav";
 import { paymasterABI, paymasterAddress } from "@/lib/paymaster";
 import { usePauseState } from "@/hooks/usePauseState";
@@ -49,7 +49,7 @@ const Pauser = () => {
 							functionName="unpause"
 							title="Mise en service du registre"
 							description="Remise en service du registre après un incident de sécurité"
-							icon={Pause}
+							icon={Play}
 							submitLabel="Mise en service"
 							successMessage="Registre remis en service"
 							danger={true}
@@ -69,7 +69,7 @@ const Pauser = () => {
 							icon={Pause}
 							submitLabel="Pause"
 							successMessage="Paymaster mis en pause"
-							danger={true}
+							danger
 							disable={paymasterPause}
 						/>
 						<WriteCallCard
@@ -78,10 +78,10 @@ const Pauser = () => {
 							functionName="unpause"
 							title="Mise en service du paymaster"
 							description="Remise en service du paymaster après un incident de sécurité"
-							icon={Pause}
+							icon={Play}
 							submitLabel="Mise en service"
 							successMessage="Paymaster remis en service"
-							danger={true}
+							danger
 							disable={!paymasterPause}
 						/>
 					</div>
