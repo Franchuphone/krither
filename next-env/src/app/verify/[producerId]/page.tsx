@@ -23,10 +23,8 @@ export default async function VerifyProducerPage({
 						title="Producteur introuvable"
 						description={
 							<>
-								Aucun producteur ne correspond à la référence
-								fournie. <br />
-								Veuillez vérifier le lien ou le QR code présent
-								sur le produit.
+								Aucun producteur ne correspond à la référence fournie. <br />
+								Veuillez vérifier le lien ou le QR code présent sur le produit.
 							</>
 						}
 					/>
@@ -49,9 +47,7 @@ export default async function VerifyProducerPage({
 							variant={accredited ? "success" : "muted"}
 							className="sm:order-last sm:ml-auto"
 						>
-							{accredited ?
-								"Producteur vérifié"
-							:	"Producteur non vérifié"}
+							{accredited ? "Producteur vérifié" : "Producteur non vérifié"}
 						</Badge>
 					}
 				/>
@@ -62,7 +58,7 @@ export default async function VerifyProducerPage({
 					icon={ScanBarcodeIcon}
 					stack="start"
 					title="Vérifier un lot"
-					description="Saisissez le numéro du lot que vous souhaitez vérifier pour consulter son parcours et ses documents."
+					description="Saisissez le numéro de lot dont vous souhaitez consulter l'historique et la documentation."
 				/>
 
 				<CardContent>

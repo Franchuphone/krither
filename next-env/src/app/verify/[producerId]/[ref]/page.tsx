@@ -1,11 +1,13 @@
 import {
 	BadgeCheckIcon,
+	BlocksIcon,
 	ListCheckIcon,
 	ShieldAlertIcon,
 	SirenIcon,
 } from "lucide-react";
 import Detail from "@/components/nav/Detail";
 import DocumentDialog from "@/components/dashboards/verify/DocumentDialog";
+import TxDetailDialog from "@/components/dashboards/verify/TxDetailDialog";
 import VerificationSequence from "@/components/dashboards/verify/VerificationSequence";
 import { Badge } from "@/components/ui/badge";
 import CardHeading from "@/components/cards/CardHeading";
@@ -17,7 +19,7 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import type { ItemMetadata } from "@/lib/lot";
-import { ipfsUrl, verifyLot } from "@/lib/verification";
+import { ipfsUrl, publicIpfsUrl, verifyLot } from "@/lib/verification";
 
 const LotDocuments = ({
 	documents,
@@ -83,11 +85,9 @@ export default async function VerifyPage({
 						title="Lot introuvable"
 						description={
 							<>
-								Aucun lot ne correspond aux références fournies.{" "}
-								<br />
-								Veuillez vérifier que vous avez saisi les bonnes
-								informations ou contactez le producteur pour plus
-								d&apos;informations.
+								Aucun lot ne correspond aux références fournies. <br />
+								Vérifiez que vous avez saisi les bonnes informations ou
+								contactez le producteur pour plus de précisions.
 							</>
 						}
 					/>
@@ -96,38 +96,11 @@ export default async function VerifyPage({
 		);
 	}
 
-	const { lot, items, accredited } = verified;
+	const { lot, items, accredited, verifiedTx } = verified;
 	const properties = lot?.properties;
 
 	return (
 		<VerificationSequence>
-			<Card className="w-full gap-4">
-				<CardHeader className="flex flex-col items-center gap-3 sm:flex-row">
-					<div className="flex w-full items-center justify-between gap-3 sm:contents">
-						<span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-							<SirenIcon className="size-4.5" />
-						</span>
-						<CardTitle className="text-base">
-							Informations importantes
-						</CardTitle>
-					</div>
-				</CardHeader>
-				<CardContent>
-					<CardDescription className="max-w-[80ch] text-sm text-muted-foreground">
-						Les données sont hébergées sur un service de stockage
-						indépendant de Krither. <br />
-						Elles sont infalsifiables et vérifiables grâce à la
-						technologie blockchain. <br />
-						Les informations présentes sur cette page ont été
-						fournies par le producteur / fabricant, qui est seul
-						responsable de leur véracité. <br />
-						Krither ne peut être tenu responsable en cas de données
-						erronées. <br />
-						Vous avez un doute? Veuillez contacter notre support.
-					</CardDescription>
-				</CardContent>
-			</Card>
-
 			<Card className="w-full gap-4">
 				<CardHeading
 					icon={BadgeCheckIcon}
@@ -142,19 +115,14 @@ export default async function VerifyPage({
 							variant={accredited ? "success" : "muted"}
 							className="sm:order-last sm:ml-auto"
 						>
-							{accredited ?
-								"Producteur vérifié"
-							:	"Producteur non vérifié"}
+							{accredited ? "Producteur vérifié" : "Producteur non vérifié"}
 						</Badge>
 					}
 				/>
 
 				<CardContent className="grid gap-3 sm:grid-cols-2">
 					{properties?.producer && (
-						<Detail
-							label="Producteur"
-							value={String(properties.producer)}
-						/>
+						<Detail label="Producteur" value={String(properties.producer)} />
 					)}
 					<Detail label="Numéro de lot" value={verified.ref} />
 					{properties?.zone && (
@@ -166,9 +134,9 @@ export default async function VerifyPage({
 					{properties?.producedAt && (
 						<Detail
 							label="Date de récolte / fabrication"
-							value={new Date(
-								String(properties.producedAt),
-							).toLocaleDateString("fr-FR")}
+							value={new Date(String(properties.producedAt)).toLocaleDateString(
+								"fr-FR",
+							)}
 						/>
 					)}
 					{properties?.quantity !== undefined && (
@@ -195,40 +163,28 @@ export default async function VerifyPage({
 				<CardContent>
 					<ul className="divide-y divide-border overflow-hidden rounded-md border border-border">
 						{items.map((item, position) => (
-							<li
-								key={position}
-								className="flex items-start gap-3 px-3 py-2.5"
-							>
+							<li key={position} className="flex items-start gap-3 px-3 py-2.5">
 								<span className="flex size-6 shrink-0 items-center justify-center rounded bg-muted text-xs font-medium text-muted-foreground tabular-nums">
 									{position + 1}
 								</span>
 
 								<div className="flex min-w-0 flex-1 flex-col gap-1.5">
 									<span className="truncate text-sm font-medium text-foreground">
-										{item?.name ??
-											"Métadonnées indisponibles"}
+										{item?.name ?? "Métadonnées indisponibles"}
 									</span>
 									{item?.description && (
 										<span className="text-xs text-muted-foreground">
 											{item.description}
 										</span>
 									)}
-									{item && (
-										<ItemDocuments
-											documents={item.documents}
-										/>
-									)}
+									{item && <ItemDocuments documents={item.documents} />}
 								</div>
 
 								{item?.properties.quantity !== undefined && (
 									<span className="ml-auto shrink-0 text-sm font-medium text-foreground tabular-nums">
 										{String(item.properties.quantity)}
 										<span className="ml-1 text-xs font-normal text-muted-foreground">
-											{(
-												Number(
-													item.properties.quantity,
-												) > 1
-											) ?
+											{Number(item.properties.quantity) > 1 ?
 												"unités"
 											:	"unité"}
 										</span>
@@ -239,6 +195,49 @@ export default async function VerifyPage({
 					</ul>
 				</CardContent>
 			</Card>
+
+			<Card className="w-full gap-4">
+				<CardHeader className="flex flex-col items-center gap-3 sm:flex-row">
+					<div className="flex w-full items-center justify-between gap-3 sm:contents">
+						<span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+							<SirenIcon className="size-4.5" />
+						</span>
+						<CardTitle className="text-base">
+							Informations importantes
+						</CardTitle>
+					</div>
+				</CardHeader>
+				<CardContent>
+					<CardDescription className="max-w-[80ch] text-sm text-muted-foreground">
+						Les données sont hébergées sur un service de stockage indépendant de
+						Krither. <br />
+						Elles sont infalsifiables et vérifiables grâce à la technologie
+						blockchain. <br />
+						Les informations présentes sur cette page ont été fournies par le
+						producteur / fabricant, qui est seul responsable de leur véracité.{" "}
+						<br />
+						Krither ne peut être tenu responsable en cas de données erronées.{" "}
+						<br />
+						Vous avez un doute? Veuillez contacter notre support.
+					</CardDescription>
+				</CardContent>
+			</Card>
+
+			{verifiedTx ?
+				<TxDetailDialog
+					verifiedTx={verifiedTx}
+					cid={verified.cid}
+					cidUrl={publicIpfsUrl(verified.cid)}
+				/>
+			:	<Card className="w-full gap-4">
+					<CardHeading
+						icon={BlocksIcon}
+						tone="destructive"
+						title="Preuve blockchain indisponible"
+						description="La transaction d'ancrage n'a pas pu être lue sur la blockchain. Les données du lot restent valides, réessayez dans quelques instants."
+					/>
+				</Card>
+			}
 		</VerificationSequence>
 	);
 }

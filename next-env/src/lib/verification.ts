@@ -1,5 +1,10 @@
 import "server-only";
-import { zeroAddress } from "viem";
+import { encodeEventTopics, parseEventLogs, zeroAddress } from "viem";
+import {
+	etherscan,
+	type EtherscanLog,
+	type EtherscanReceipt,
+} from "@/lib/etherscan";
 import type { ItemMetadata } from "@/lib/lot";
 import prisma from "@/lib/prisma";
 import { registryABI } from "@/lib/registry";
@@ -8,7 +13,26 @@ import { registryAddress, serverClient } from "@/lib/serverChain";
 
 const gateway = process.env.PINATA_GATEWAY ?? "https://gateway.pinata.cloud";
 
+const publicGateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY ?? "https://ipfs.io";
+
+const deployedBlock = process.env.NEXT_PUBLIC_REGISTRY_DEPLOYED_BLOCK ?? "0";
+
 export const ipfsUrl = (cid: string) => `${gateway}/ipfs/${cid}`;
+
+export const publicIpfsUrl = (cid: string) => `${publicGateway}/ipfs/${cid}`;
+
+export type TxEvent = {
+	name: string;
+	args: { name: string; value: string }[];
+};
+
+/** Only what a client component may read back: strings, never a bigint. */
+export type VerifiedTxLot = {
+	txHash: `0x${string}`;
+	contract: `0x${string}`;
+	minedAt: string;
+	events: TxEvent[];
+};
 
 export type VerifiedLot = {
 	producerId: string;
@@ -19,6 +43,7 @@ export type VerifiedLot = {
 	cid: string;
 	lot: ItemMetadata | null;
 	items: (ItemMetadata | null)[];
+	verifiedTx: VerifiedTxLot | null;
 };
 
 export type VerifiedProducer = {
@@ -72,6 +97,71 @@ async function metadata(cid: string, index: number) {
 	}
 }
 
+const readable = (value: unknown): string =>
+	Array.isArray(value) ? value.map(readable).join(", ")
+	: typeof value === "bigint" ? value.toString()
+	: String(value);
+
+/**
+ * The LotCreated log names the anchoring transaction; its receipt names the
+ * rest. An existing lot always has that log, so a miss is a read failure, not
+ * an absence: it is logged and reported to the page as unavailable proof.
+ */
+async function verifyTxLot(idLot: bigint): Promise<VerifiedTxLot | null> {
+	try {
+		const [topic0, topic1] = encodeEventTopics({
+			abi: registryABI,
+			eventName: "LotCreated",
+			args: { idLot },
+		});
+
+		const [created] = await etherscan<EtherscanLog[]>({
+			module: "logs",
+			action: "getLogs",
+			address: registryAddress,
+			fromBlock: deployedBlock,
+			toBlock: "latest",
+			topic0: String(topic0),
+			topic0_1_opr: "and",
+			topic1: String(topic1),
+			page: "1",
+			offset: "1",
+		});
+		if (!created) throw new Error(`Aucun log LotCreated pour le lot ${idLot}`);
+
+		const receipt = await etherscan<EtherscanReceipt>({
+			module: "proxy",
+			action: "eth_getTransactionReceipt",
+			txhash: created.transactionHash,
+		});
+		if (receipt.status !== "0x1")
+			throw new Error(`Transaction ${created.transactionHash} échouée`);
+
+		const events = parseEventLogs({
+			abi: registryABI,
+			logs: receipt.logs.filter(
+				(log) => log.address.toLowerCase() === registryAddress.toLowerCase(),
+			),
+		});
+
+		return {
+			txHash: created.transactionHash,
+			contract: registryAddress,
+			minedAt: new Date(Number(created.timeStamp) * 1000).toISOString(),
+			events: events.map((event) => ({
+				name: event.eventName,
+				args: Object.entries(event.args ?? {}).map(([name, value]) => ({
+					name,
+					value: readable(value),
+				})),
+			})),
+		};
+	} catch (cause) {
+		console.error(cause);
+		return null;
+	}
+}
+
 /** Chain and IPFS only: a database row proves nothing about a lot. */
 export async function verifyLot(
 	producerId: string,
@@ -110,11 +200,14 @@ export async function verifyLot(
 		}),
 	]);
 
-	const documents = await Promise.all(
-		Array.from({ length: Number(itemCount) }, (_, index) =>
-			metadata(cid, index),
+	const [documents, verifiedTx] = await Promise.all([
+		Promise.all(
+			Array.from({ length: Number(itemCount) }, (_, index) =>
+				metadata(cid, index),
+			),
 		),
-	);
+		verifyTxLot(idLot),
+	]);
 
 	const [lot, ...items] = documents;
 
@@ -127,5 +220,6 @@ export async function verifyLot(
 		cid,
 		lot,
 		items,
+		verifiedTx,
 	};
 }
