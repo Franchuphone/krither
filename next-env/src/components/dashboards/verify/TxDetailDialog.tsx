@@ -5,7 +5,7 @@ import { Fragment } from "react";
 import CardHeading from "@/components/cards/CardHeading";
 import Detail from "@/components/nav/Detail";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
 	Dialog,
 	DialogContent,
@@ -23,9 +23,6 @@ const dateFormat = new Intl.DateTimeFormat("fr-FR", {
 	timeStyle: "short",
 	timeZone: "UTC",
 });
-
-const short = (value: string) =>
-	value.length > 20 ? `${value.slice(0, 10)}…${value.slice(-8)}` : value;
 
 const LinkDetail = ({
 	label,
@@ -69,7 +66,7 @@ const TxDetailDialog = ({
 				<Card className="w-full gap-4 transition-colors group-hover:border-primary">
 					<CardHeading
 						icon={BlocksIcon}
-						stack="start"
+						stack="center"
 						title="Preuve blockchain"
 						description="Inscription sur la blockchain confirmée. Cliquez pour consulter le détail complet."
 						badge={

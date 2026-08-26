@@ -14,7 +14,7 @@ type CardHeadingProps = {
 	/** Closes the row, e.g. a refresh button. */
 	action?: ReactNode;
 	/** Stacks the icon above the text below sm, aligned centre or left. */
-	stack?: "center" | "start";
+	stack?: "center" | "start" | "centerNoBadge";
 	iconClassName?: string;
 };
 
@@ -47,6 +47,7 @@ const CardHeading = ({
 				"flex gap-3",
 				stack === "center" ? "flex-col items-center sm:flex-row"
 				: stack === "start" ? "flex-col items-start sm:flex-row"
+				: stack === "centerNoBadge" ? "flex-row items-center"
 				: "flex-row items-start",
 			)}
 		>

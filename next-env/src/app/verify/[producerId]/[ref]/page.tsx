@@ -11,13 +11,7 @@ import TxDetailDialog from "@/components/dashboards/verify/TxDetailDialog";
 import VerificationSequence from "@/components/dashboards/verify/VerificationSequence";
 import { Badge } from "@/components/ui/badge";
 import CardHeading from "@/components/cards/CardHeading";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import type { ItemMetadata } from "@/lib/lot";
 import { ipfsUrl, publicIpfsUrl, verifyLot } from "@/lib/verification";
 
@@ -150,13 +144,14 @@ export default async function VerifyPage({
 							<LotDocuments documents={lot.documents} />
 						</div>
 					)}
+					le s
 				</CardContent>
 			</Card>
 
 			<Card className="w-full gap-4">
 				<CardHeading
 					icon={ListCheckIcon}
-					stack="center"
+					stack="centerNoBadge"
 					title={`Composition : ${items.length} articles`}
 				/>
 
@@ -197,16 +192,11 @@ export default async function VerifyPage({
 			</Card>
 
 			<Card className="w-full gap-4">
-				<CardHeader className="flex flex-col items-center gap-3 sm:flex-row">
-					<div className="flex w-full items-center justify-between gap-3 sm:contents">
-						<span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-							<SirenIcon className="size-4.5" />
-						</span>
-						<CardTitle className="text-base">
-							Informations importantes
-						</CardTitle>
-					</div>
-				</CardHeader>
+				<CardHeading
+					icon={SirenIcon}
+					stack="centerNoBadge"
+					title="Informations importantes"
+				/>
 				<CardContent>
 					<CardDescription className="max-w-[80ch] text-sm text-muted-foreground">
 						Les données sont hébergées sur un service de stockage indépendant de
