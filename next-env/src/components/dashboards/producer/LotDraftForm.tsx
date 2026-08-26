@@ -1,9 +1,13 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { format, parseISO } from "date-fns";
+import { fr } from "date-fns/locale";
 import {
+	CalendarIcon,
 	FileTextIcon,
 	Loader2Icon,
+	type LucideIcon,
 	PackagePlusIcon,
 	PaperclipIcon,
 	PlusIcon,
@@ -15,7 +19,14 @@ import {
 	createLotDraft,
 	depositLotDocument,
 } from "@/app/actions/producer/lots";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import CardHeading from "@/components/cards/CardHeading";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -68,6 +79,88 @@ const Field = ({
 	</div>
 );
 
+const DateField = ({
+	id,
+	label,
+	value,
+	onChange,
+	error,
+	disabled,
+}: {
+	id: string;
+	label: string;
+	value: string;
+	onChange: (next: string) => void;
+	error?: string;
+	disabled?: boolean;
+}) => {
+	const selected = value ? parseISO(value) : undefined;
+
+	return (
+		<div className="flex flex-col gap-1.5">
+			<Label htmlFor={id} className="text-muted-foreground">
+				{label}
+			</Label>
+			<Popover>
+				<PopoverTrigger
+					id={id}
+					disabled={disabled}
+					className="flex h-7 w-full items-center justify-between gap-2 rounded-md border border-input bg-input/20 px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 md:text-xs/relaxed dark:bg-input/30"
+				>
+					<span className={selected ? "" : "text-muted-foreground"}>
+						{selected ?
+							format(selected, "d MMMM yyyy", { locale: fr })
+						:	"Choisir une date"}
+					</span>
+					<CalendarIcon className="size-3.5 text-muted-foreground" />
+				</PopoverTrigger>
+				<PopoverContent align="start" className="w-auto p-0">
+					<Calendar
+						mode="single"
+						locale={fr}
+						disabled={{ after: new Date() }}
+						selected={selected}
+						onSelect={(date) =>
+							onChange(date ? format(date, "yyyy-MM-dd") : "")
+						}
+					/>
+				</PopoverContent>
+			</Popover>
+			{error && <p className="text-xs text-destructive">{error}</p>}
+		</div>
+	);
+};
+
+const AddButton = ({
+	icon: Icon,
+	label,
+	hint,
+	compact,
+	disabled,
+	onClick,
+}: {
+	icon: LucideIcon;
+	label: string;
+	hint?: string;
+	compact?: boolean;
+	disabled?: boolean;
+	onClick: () => void;
+}) => (
+	<button
+		type="button"
+		disabled={disabled}
+		onClick={onClick}
+		className={cn(
+			"flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-border bg-muted/40 px-3 text-xs tracking-kicker text-muted-foreground uppercase transition-colors outline-none hover:border-primary hover:bg-primary/5 hover:text-primary focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50",
+			compact ? "py-1.5" : "py-4",
+		)}
+	>
+		<Icon className="size-3.5" />
+		{label}
+		{hint && <span className="opacity-60">{hint}</span>}
+	</button>
+);
+
 const FilePicker = ({
 	label,
 	files,
@@ -75,6 +168,7 @@ const FilePicker = ({
 	onPick,
 	onDrop,
 	disabled,
+	compact,
 }: {
 	label: string;
 	files: File[];
@@ -82,6 +176,7 @@ const FilePicker = ({
 	onPick: (picked: File[]) => void;
 	onDrop: (index: number) => void;
 	disabled?: boolean;
+	compact?: boolean;
 }) => {
 	const input = useRef<HTMLInputElement>(null);
 
@@ -97,7 +192,7 @@ const FilePicker = ({
 						variant="ghost"
 						size="icon"
 						aria-label="Retirer le document"
-						className="ml-auto size-6"
+						className="ml-auto size-6 hover:bg-secondary hover:text-secondary-foreground"
 						disabled={disabled}
 						onClick={() => onDrop(index)}
 					>
@@ -120,16 +215,14 @@ const FilePicker = ({
 						onPick(picked.slice(0, max - files.length));
 				}}
 			/>
-			<Button
-				variant="secondary"
-				size="sm"
-				className="self-start"
+			<AddButton
+				icon={PaperclipIcon}
+				label={label}
+				hint={`${files.length}/${max}`}
+				compact={compact}
 				disabled={disabled || files.length >= max}
 				onClick={() => input.current?.click()}
-			>
-				<PaperclipIcon />
-				{label}
-			</Button>
+			/>
 		</div>
 	);
 };
@@ -255,10 +348,9 @@ const LotDraftForm = () => {
 						error={touched ? errors.zone : undefined}
 						disabled={save.isPending}
 					/>
-					<Field
+					<DateField
 						id="lot-produced-at"
 						label="Date de récolte / fabrication"
-						type="date"
 						value={lot.producedAt}
 						onChange={(producedAt) =>
 							setLot((current) => ({ ...current, producedAt }))
@@ -282,8 +374,8 @@ const LotDraftForm = () => {
 						/>
 					</div>
 
-					<div className="flex flex-col gap-3">
-						<span className="text-xs tracking-wide text-muted-foreground uppercase">
+					<div className="flex flex-col gap-3 sm:col-span-2">
+						<span className="text-xs tracking-kicker text-muted-foreground uppercase">
 							Documents
 						</span>
 
@@ -310,7 +402,7 @@ const LotDraftForm = () => {
 				</div>
 
 				<div className="flex flex-col gap-3">
-					<span className="text-xs tracking-wide text-muted-foreground uppercase">
+					<span className="text-xs tracking-kicker text-muted-foreground uppercase">
 						Composition
 					</span>
 
@@ -361,7 +453,7 @@ const LotDraftForm = () => {
 								variant="ghost"
 								size="icon"
 								aria-label="Retirer l'article"
-								className="mt-6"
+								className="mt-6 hover:bg-secondary hover:text-secondary-foreground"
 								disabled={
 									lot.items.length === 1 || save.isPending
 								}
@@ -385,6 +477,7 @@ const LotDraftForm = () => {
 							<div className="sm:col-span-4">
 								<FilePicker
 									label="Document : 1 seul autorisé"
+									compact
 									max={1}
 									files={
 										itemFiles[index] ?
@@ -401,9 +494,9 @@ const LotDraftForm = () => {
 						</div>
 					))}
 
-					<Button
-						variant="secondary"
-						className="self-start"
+					<AddButton
+						icon={PlusIcon}
+						label="Ajouter un article"
 						disabled={
 							lot.items.length >= MAX_ITEMS || save.isPending
 						}
@@ -414,10 +507,7 @@ const LotDraftForm = () => {
 							}));
 							setItemFiles((current) => [...current, null]);
 						}}
-					>
-						<PlusIcon />
-						Ajouter un article
-					</Button>
+					/>
 				</div>
 			</CardContent>
 
