@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.31;
 
 import {IKritherSubscriptions} from "../interfaces/IKritherSubscriptions.sol";
@@ -9,27 +9,42 @@ import {
     IAccessControl
 } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
+/// @notice Plans an accredited actor buys, and the windows a purchase opens.
+/// @dev Holds no accreditation of its own: every role is read live from the
+///      registry.
 abstract contract KritherSubscriptions is
     IKritherSubscriptions,
     Errors,
     Pausable
 {
-    bytes32 public constant DEFAULT_ADMIN_ROLE = Constants.DEFAULT_ADMIN_ROLE;
-    bytes32 public constant PAUSER_ROLE = Constants.PAUSER_ROLE;
+    /*//////////////////////////////////////////////////////////////
+                                 STORAGE
+    //////////////////////////////////////////////////////////////*/
+
     bytes32 public constant PLANS_ADMIN_ROLE = Constants.PLANS_ADMIN_ROLE;
 
-    mapping(address => Subscription) internal _subscriptions;
+    mapping(address account => Subscription) internal _subscriptions;
 
+    /// @inheritdoc IKritherSubscriptions
     address public immutable registry;
 
     Plan[] internal _plans;
 
+    /// @param registry_ Registry every accreditation is read from.
     constructor(address registry_) checkAddressZero(registry_) {
         registry = registry_;
     }
 
-    /// @dev Accreditation is read live from the registry, so a revoked role
-    ///      stops sponsorship without any state to keep in sync here.
+    /*//////////////////////////////////////////////////////////////
+                                  GUARDS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Reads an accreditation off the registry.
+    /// @dev Read live, so a revoked role stops sponsorship with no state to
+    ///      keep in sync here.
+    /// @param role Role to look for.
+    /// @param account Wallet to check.
+    /// @return Whether the account holds it.
     function _hasRegistryRole(
         bytes32 role,
         address account
@@ -37,27 +52,41 @@ abstract contract KritherSubscriptions is
         return IAccessControl(registry).hasRole(role, account);
     }
 
+    /// @notice Reverts unless the account holds the role.
     /// @dev The guard behind `onlyRegistryRole`, reachable on its own for the
     ///      checks a modifier cannot express, such as one branch of a call.
+    /// @param role Role required.
+    /// @param account Wallet to check.
     function _requireAccredited(bytes32 role, address account) internal view {
         require(_hasRegistryRole(role, account), NotAccredited());
     }
 
+    /// @notice Reverts unless the plan exists.
     /// @dev The guard behind `checkPlanExists`, reachable the same way.
+    /// @param planId Plan to check.
     function _requirePlanExists(uint8 planId) internal view {
         require(planId < _plans.length, PlanUnknown());
     }
 
+    /// @notice Restricts a call to a holder of the registry role.
+    /// @param role Role required.
     modifier onlyRegistryRole(bytes32 role) {
         _requireAccredited(role, msg.sender);
         _;
     }
 
+    /// @notice Rejects a plan id that was never opened.
+    /// @param planId Plan to check.
     modifier checkPlanExists(uint8 planId) {
         _requirePlanExists(planId);
         _;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                                  PLANS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IKritherSubscriptions
     function planTerms(
         uint8 planId
     )
@@ -80,10 +109,12 @@ abstract contract KritherSubscriptions is
         enabled = plan.enabled;
     }
 
+    /// @inheritdoc IKritherSubscriptions
     function planCount() external view returns (uint256) {
         return _plans.length;
     }
 
+    /// @inheritdoc IKritherSubscriptions
     function addPlan(
         bytes32 role,
         uint96 price,
@@ -103,6 +134,9 @@ abstract contract KritherSubscriptions is
         emit PlanSet(planId, role, price, quota, period, true);
     }
 
+    /// @inheritdoc IKritherSubscriptions
+    /// @dev The role a plan sells against is never rewritten: subscriptions
+    ///      already bought against it would change meaning.
     function setPlan(
         uint8 planId,
         uint96 price,
@@ -125,6 +159,11 @@ abstract contract KritherSubscriptions is
         emit PlanSet(planId, plan.role, price, quota, period, enabled);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                              SUBSCRIPTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IKritherSubscriptions
     function subscriptions(
         address account
     )
@@ -148,6 +187,9 @@ abstract contract KritherSubscriptions is
         expiresAt = subscription.expiresAt;
     }
 
+    /// @inheritdoc IKritherSubscriptions
+    /// @dev A window that has rolled reports the full quota without writing;
+    ///      the refill is booked by the next operation settled.
     function remainingQuota(address account) external view returns (uint32) {
         Subscription storage subscription = _subscriptions[account];
         if (block.timestamp > subscription.expiresAt) {
@@ -159,6 +201,9 @@ abstract contract KritherSubscriptions is
         return subscription.quota - subscription.used;
     }
 
+    /// @inheritdoc IKritherSubscriptions
+    /// @dev A renewal appends a window rather than restarting one: the window
+    ///      in progress keeps its quota and its end.
     function subscribe(
         uint8 planId
     )
@@ -194,11 +239,4 @@ abstract contract KritherSubscriptions is
         emit Subscribed(msg.sender, planId, expiresAt, quota);
     }
 
-    function pause() external onlyRegistryRole(PAUSER_ROLE) {
-        _pause();
-    }
-
-    function unpause() external onlyRegistryRole(PAUSER_ROLE) {
-        _unpause();
-    }
 }

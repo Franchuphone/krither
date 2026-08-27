@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.31;
 
 import {
@@ -23,23 +23,41 @@ abstract contract KritherRoles is
     AccessControlEnumerable,
     Pausable
 {
+    /*//////////////////////////////////////////////////////////////
+                                  ROLES
+    //////////////////////////////////////////////////////////////*/
+
     bytes32 public constant PRODUCER_ROLE = Constants.PRODUCER_ROLE;
     bytes32 public constant RESELLER_ROLE = Constants.RESELLER_ROLE;
     bytes32 public constant CONSUMER_ROLE = Constants.CONSUMER_ROLE;
-    bytes32 public constant PAUSER_ROLE = Constants.PAUSER_ROLE;
     bytes32 public constant USERS_ADMIN_ROLE = Constants.USERS_ADMIN_ROLE;
+
+    /*//////////////////////////////////////////////////////////////
+                            PRODUCER IDENTITY
+    //////////////////////////////////////////////////////////////*/
 
     uint256 private _nextProducerId;
 
+    /// @inheritdoc IKritherRoles
     mapping(address account => uint256 idProducer) public producerByAddr;
+
+    /// @inheritdoc IKritherRoles
     mapping(uint256 idProducer => address account) public producerById;
 
+    /// @dev Accrediting users is its own job, kept apart from the admin that
+    ///      owns the contract itself.
     constructor() {
         _setRoleAdmin(PRODUCER_ROLE, USERS_ADMIN_ROLE);
         _setRoleAdmin(RESELLER_ROLE, USERS_ADMIN_ROLE);
         _setRoleAdmin(CONSUMER_ROLE, USERS_ADMIN_ROLE);
     }
 
+    /// @notice Grants a role, assigning a producer id on a first accreditation.
+    /// @dev Guarded on `producerByAddr`, so a re-accreditation hands the
+    ///      original id back rather than consuming a new one.
+    /// @param role Role to grant.
+    /// @param account Wallet receiving it.
+    /// @return Whether the role was not already held.
     function _grantRole(
         bytes32 role,
         address account
@@ -53,10 +71,12 @@ abstract contract KritherRoles is
         return granted;
     }
 
-    /// @dev Accreditation is what the paymaster reads to decide who it pays
-    ///      for, so dropping one's own role is a state change like any other
-    ///      and the breaker holds it. Leaving it open would let an account walk
-    ///      out of its own accreditation while an incident is being contained.
+    /// @notice Drops one of the caller's own roles.
+    /// @dev Held by the breaker: accreditation is what the paymaster reads to
+    ///      decide who it pays for, so an account must not walk out of its own
+    ///      while an incident is being contained.
+    /// @param role Role to drop.
+    /// @param callerConfirmation Must be the caller's own address.
     function renounceRole(
         bytes32 role,
         address callerConfirmation
@@ -64,14 +84,13 @@ abstract contract KritherRoles is
         super.renounceRole(role, callerConfirmation);
     }
 
-    function pause() external onlyRole(PAUSER_ROLE) {
-        _pause();
-    }
+    /*//////////////////////////////////////////////////////////////
+                          PRODUCER REASSIGNMENT
+    //////////////////////////////////////////////////////////////*/
 
-    function unpause() external onlyRole(PAUSER_ROLE) {
-        _unpause();
-    }
-
+    /// @inheritdoc IKritherRoles
+    /// @dev Repointing the id re-attributes every lot the old wallet ever
+    ///      minted in one transaction; `lots[].producer` stays the original.
     function reassignProducer(
         address oldAddress,
         address newAddress

@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.31;
 
 import {IKritherPaymaster} from "../interfaces/IKritherPaymaster.sol";
 import {KritherSubscriptions} from "../abstracts/KritherSubscriptions.sol";
+import {IKritherSubscriptions} from "../interfaces/IKritherSubscriptions.sol";
 import {Constants} from "../libraries/Constants.sol";
 import {
     IEntryPoint
@@ -14,15 +15,23 @@ import {
     PackedUserOperation
 } from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 
+/// @notice ERC-4337 paymaster: pays the gas of accredited Krither accounts,
+///         out of a subscription's quota or a capped onboarding allowance.
 contract KritherPaymaster is
     KritherSubscriptions,
     IKritherPaymaster,
     IPaymaster
 {
+    /*//////////////////////////////////////////////////////////////
+                                 STORAGE
+    //////////////////////////////////////////////////////////////*/
+
     /// @dev Sponsorship is its own job: the gas budget, the stake and the
-    ///      revenue are handled by whoever holds this, not by the registry
-    ///      admin that accredits producers and opens plans.
+    ///      revenue are handled by whoever holds this
     bytes32 public constant PAYMASTER_ROLE = Constants.PAYMASTER_ROLE;
+
+    bytes32 public constant DEFAULT_ADMIN_ROLE = Constants.DEFAULT_ADMIN_ROLE;
+    bytes32 public constant PAUSER_ROLE = Constants.PAUSER_ROLE;
 
     IEntryPoint public immutable entryPoint;
 
@@ -32,6 +41,8 @@ contract KritherPaymaster is
 
     mapping(address account => uint256 used) public freeOps;
 
+    /// @param registry_ Registry every accreditation is read from.
+    /// @param entryPoint_ EntryPoint the paymaster answers to.
     constructor(
         address registry_,
         address entryPoint_
@@ -45,6 +56,7 @@ contract KritherPaymaster is
                                MODIFIERS
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Restricts a call to the EntryPoint.
     modifier onlyEntryPoint() {
         require(msg.sender == address(entryPoint), NotEntryPoint());
         _;
@@ -54,10 +66,12 @@ contract KritherPaymaster is
                             USER OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Reads the targets out of the call an account is about to make and
-    ///      reports whether the operation buys a plan, naming which one.
+    /// @notice Reads the targets out of the call an account is about to make.
     /// @dev A `subscribe(uint8)` call is 36 bytes, its argument padded into the
-    ///      last word, so anything else is read as an ordinary sponsored call.
+    ///      last word; anything else is an ordinary sponsored call.
+    /// @param callData Call the account forwards.
+    /// @return subscribing Whether the operation buys a plan.
+    /// @return planId Plan it buys, zero otherwise.
     function _readTargets(
         bytes calldata callData
     ) private view returns (bool subscribing, uint8 planId) {
@@ -95,10 +109,11 @@ contract KritherPaymaster is
         revert CallShapeUnsupported();
     }
 
-    /// @dev Reads which lane an operation asks to be paid out of. Nothing here
-    ///      is taken on trust: the lane only picks which set of terms the
-    ///      operation is held to, and each set carries the window it is true
-    ///      in, so an operation naming the wrong one is never included.
+    /// @notice Reads which lane an operation asks to be paid out of.
+    /// @dev Taken on trust: the lane only picks which terms the operation is
+    ///      held to, and each set carries the window it is true in.
+    /// @param paymasterAndData Paymaster field of the operation.
+    /// @return onboarding Whether it asks for the onboarding lane.
     function _readLane(
         bytes calldata paymasterAndData
     ) private pure returns (bool onboarding) {
@@ -109,14 +124,10 @@ contract KritherPaymaster is
     }
 
     /// @inheritdoc IPaymaster
-    /// @dev Tightened to `view`, which ERC-4337 allows and bundlers want:
-    ///      they drop a paymaster whose validation writes unless it is
-    ///      whitelisted. Every allowance this contract keeps is settled in
-    ///      `postOp`, so the compiler now holds that line.
-    /// @dev Not one branch here reads the clock. `TIMESTAMP` is banned during
-    ///      validation, so every condition the terms put on time is handed to
-    ///      the EntryPoint as the window the operation is valid in, and it is
-    ///      the EntryPoint that holds the operation to it.
+    /// @dev `view` on purpose: bundlers drop a paymaster whose validation
+    ///      writes, so every allowance is settled in `postOp` instead.
+    /// @dev No branch reads the clock, a banned opcode here; a time condition
+    ///      is handed to the EntryPoint as the window the operation holds in.
     function validatePaymasterUserOp(
         PackedUserOperation calldata userOp,
         bytes32,
@@ -133,14 +144,9 @@ contract KritherPaymaster is
         (bool subscribing, uint8 planId) = _readTargets(userOp.callData);
         Subscription storage subscription = _subscriptions[userOp.sender];
 
-        /// @dev Free operations are what an accredited actor rides in on and
-        ///      renews on, so they are gated on the accreditation the plan
-        ///      sells against. Ungated, anyone could mint accounts and spend
-        ///      the gas budget one free operation at a time.
-        /// @dev Opening the window at `expiresAt` is what keeps a running
-        ///      subscription out of this lane: until the last window it paid
-        ///      for has closed, the operation is not yet due and no bundler
-        ///      can include it.
+        // Gated on the accreditation the plan sells against: ungated, anyone
+        // could mint accounts and drain the budget one free operation at a
+        // time. Opening at `expiresAt` keeps a running subscription out.
         if (
             subscribing &&
             _readLane(userOp.paymasterAndData) &&
@@ -157,10 +163,8 @@ contract KritherPaymaster is
         require(subscription.expiresAt != 0, SubscriptionExpired());
         _requireAccredited(_plans[subscription.planId].role, userOp.sender);
 
-        /// @dev A spent quota refills at `periodEnd`, so the operation is held
-        ///      until then rather than refused. It is only refused when the
-        ///      window it would wait for falls outside the subscription: past
-        ///      the last one there is nothing left to refill.
+        // A spent quota refills at `periodEnd`, so the operation waits rather
+        // than being refused; past the last window there is nothing to refill.
         bool exhausted = subscription.used >= subscription.quota;
         require(
             !exhausted || subscription.periodEnd < subscription.expiresAt,
@@ -179,9 +183,8 @@ contract KritherPaymaster is
     }
 
     /// @inheritdoc IPaymaster
-    /// @dev Never gated on the pause: an operation the paymaster already
-    ///      agreed to pay for must settle, and a reverting `postOp` would
-    ///      only cost it the gas twice.
+    /// @dev Never gated on the pause: an operation already agreed to must
+    ///      settle, and a reverting `postOp` costs the gas twice.
     function postOp(
         PostOpMode,
         bytes calldata context,
@@ -195,19 +198,15 @@ contract KritherPaymaster is
 
         Subscription storage subscription = _subscriptions[account];
 
-        /// @dev The plan is bought by the very call this settles, so a running
-        ///      subscription means the operation turned into revenue and costs
-        ///      the account none of its free ones. Anything else bought
-        ///      nothing and is charged against them.
+        // The plan is bought by the very call this settles: a running
+        // subscription means the operation turned into revenue.
         if (onboarding) {
             if (subscription.expiresAt > block.timestamp) {
                 freeOps[account] = 0;
                 emit OnboardingSponsored(account, actualGasCost);
             } else {
-                /// @dev Stopping at the cap for the reason quota stops at its
-                ///      own, one branch below: a bundle can validate two
-                ///      operations from one account against the same count,
-                ///      and counting past it would underflow what is left.
+                // A bundle can validate two operations against the same
+                // count; counting past the cap would underflow what is left.
                 if (freeOps[account] < Constants.MAX_FREE_OPS) {
                     freeOps[account] += 1;
                 }
@@ -219,19 +218,16 @@ contract KritherPaymaster is
         }
 
         if (subscription.periodEnd > block.timestamp) {
-            /// @dev A bundle may carry two operations from one account, both
-            ///      validated against the same allowance before either
-            ///      settles. Stopping at the quota costs the paymaster the
-            ///      overrun, where counting past it would underflow every
-            ///      later read.
+            // Two operations may validate against the same allowance before
+            // either settles; stopping at the quota costs the overrun, where
+            // counting past it would underflow every later read.
             if (subscription.used < subscription.quota) {
                 subscription.used += 1;
             }
         } else {
-            /// @dev A window belongs to the subscription paying for it, so it
-            ///      never outlives one. Left unclamped it can, and an account
-            ///      renewing inside the overhang carries in the quota a
-            ///      subscription it has already replaced had spent.
+            // A window never outlives the subscription paying for it: left
+            // unclamped, a renewal inside the overhang would carry in a quota
+            // the replaced subscription had already spent.
             subscription.used = 1;
             uint64 periodEnd = uint64(block.timestamp + subscription.period);
             subscription.periodEnd = periodEnd > subscription.expiresAt
@@ -250,6 +246,7 @@ contract KritherPaymaster is
                             FREE OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc IKritherPaymaster
     function resetFreeOps(
         address account
     )
@@ -266,6 +263,7 @@ contract KritherPaymaster is
                            SPONSORSHIP TERMS
     //////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc IKritherPaymaster
     function setMaxCostPerOp(
         uint256 newMaxCostPerOp
     ) external whenNotPaused onlyRegistryRole(PAYMASTER_ROLE) {
@@ -273,6 +271,7 @@ contract KritherPaymaster is
         emit MaxCostPerOpSet(newMaxCostPerOp);
     }
 
+    /// @inheritdoc IKritherPaymaster
     function setSponsoredTarget(
         address target,
         bool allowed
@@ -290,15 +289,15 @@ contract KritherPaymaster is
                                GAS BUDGET
     //////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc IKritherPaymaster
     function entryPointBalance() external view returns (uint256) {
         return entryPoint.balanceOf(address(this));
     }
 
-    /// @dev Payable because the contract holds nothing but what subscriptions
-    ///      paid it, and a paymaster with no subscribers yet has no revenue to
-    ///      move. `amount` is what reaches the EntryPoint, `msg.value` what the
-    ///      caller adds first, so the same function opens the budget and later
-    ///      tops it up out of what Krither earned.
+    /// @inheritdoc IKritherPaymaster
+    /// @dev `amount` is what reaches the EntryPoint, `msg.value` what the
+    ///      caller advances first: a paymaster with no subscribers yet holds
+    ///      no revenue to move.
     function depositToEntryPoint(
         uint256 amount
     ) external payable whenNotPaused onlyRegistryRole(PAYMASTER_ROLE) {
@@ -311,7 +310,8 @@ contract KritherPaymaster is
         entryPoint.depositTo{value: amount}(address(this));
     }
 
-    /// @dev Nothing held can go in here: the EntryPoint stakes what the call
+    /// @inheritdoc IKritherPaymaster
+    /// @dev Nothing held can go in: the EntryPoint stakes what the call
     ///      carries and the contract cannot add to it.
     function addStake(
         uint32 unstakeDelaySec
@@ -320,6 +320,7 @@ contract KritherPaymaster is
         entryPoint.addStake{value: msg.value}(unstakeDelaySec);
     }
 
+    /// @inheritdoc IKritherPaymaster
     function unlockStake()
         external
         whenNotPaused
@@ -329,9 +330,24 @@ contract KritherPaymaster is
     }
 
     /*//////////////////////////////////////////////////////////////
+                             CIRCUIT BREAKER
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IKritherSubscriptions
+    function pause() external onlyRegistryRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    /// @inheritdoc IKritherSubscriptions
+    function unpause() external onlyRegistryRole(PAUSER_ROLE) {
+        _unpause();
+    }
+
+    /*//////////////////////////////////////////////////////////////
                                 WITHDRAWALS
     //////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc IKritherPaymaster
     /// @dev Money leaving Krither answers to the registry admin, never to the
     ///      role that merely runs the sponsorship day to day.
     function withdrawFromEntryPoint(
@@ -347,6 +363,7 @@ contract KritherPaymaster is
         entryPoint.withdrawTo(to, amount);
     }
 
+    /// @inheritdoc IKritherPaymaster
     /// @dev The EntryPoint sends the whole stake and takes no amount, so the
     ///      figure the event reports is read back before it is emptied.
     function withdrawStake(
@@ -365,6 +382,7 @@ contract KritherPaymaster is
         entryPoint.withdrawStake(to);
     }
 
+    /// @inheritdoc IKritherPaymaster
     function withdrawRevenue(
         address payable to,
         uint256 amount

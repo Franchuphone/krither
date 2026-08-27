@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.31;
 
 import {EntryPoint} from "@account-abstraction/contracts/core/EntryPoint.sol";
@@ -20,6 +20,8 @@ contract TestEntryPoint is EntryPoint {}
 /// @dev Owned from the constructor, skipping the proxy the reference factory
 ///      builds: the paymaster never reads how an account was created.
 contract TestAccount is SimpleAccount {
+    /// @param entryPoint_ EntryPoint the account answers to.
+    /// @param owner_ Wallet signing for the account.
     constructor(
         IEntryPoint entryPoint_,
         address owner_
