@@ -2,7 +2,11 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { getAddress, isAddress } from "viem";
 import { registryABI } from "@/lib/registry";
-import { DEFAULT_ADMIN_ROLE, PRODUCER_ROLE } from "@/lib/roles";
+import {
+	DEFAULT_ADMIN_ROLE,
+	PRODUCER_ROLE,
+	USERS_ADMIN_ROLE,
+} from "@/lib/roles";
 import { registryAddress, serverClient } from "@/lib/serverChain";
 
 export const SESSION_COOKIE = "krither_session";
@@ -69,4 +73,5 @@ export async function requireRole(role: `0x${string}`) {
 }
 
 export const requireAdmin = () => requireRole(DEFAULT_ADMIN_ROLE);
+export const requireUsersAdmin = () => requireRole(USERS_ADMIN_ROLE);
 export const requireProducer = () => requireRole(PRODUCER_ROLE);

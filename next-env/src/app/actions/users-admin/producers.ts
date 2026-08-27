@@ -1,7 +1,7 @@
 "use server";
 
 import { getAddress } from "viem";
-import { requireAdmin } from "@/lib/session";
+import { requireUsersAdmin } from "@/lib/session";
 import { createGroup } from "@/lib/pinata";
 import prisma from "@/lib/prisma";
 import type { ProducerDossier } from "@/lib/producerRegistration";
@@ -12,7 +12,7 @@ import { registryAddress, serverClient } from "@/lib/serverChain";
 export type ReviewState = { ok?: boolean; error?: string };
 
 export async function listProducerRequests(): Promise<ProducerDossier[]> {
-	if (!(await requireAdmin())) return [];
+	if (!(await requireUsersAdmin())) return [];
 
 	const producers = await prisma.producer.findMany({
 		where: { status: "PENDING" },
@@ -29,7 +29,7 @@ export async function listProducerRequests(): Promise<ProducerDossier[]> {
 
 /** Records what the chain already says, so no dossier is approved without its grant tx. */
 export async function approveProducer(id: string): Promise<ReviewState> {
-	if (!(await requireAdmin())) return { error: "Accès refusé" };
+	if (!(await requireUsersAdmin())) return { error: "Accès refusé" };
 
 	const producer = await prisma.producer.findUnique({
 		where: { id },
@@ -74,7 +74,7 @@ export async function approveProducer(id: string): Promise<ReviewState> {
 }
 
 export async function rejectProducer(id: string): Promise<ReviewState> {
-	if (!(await requireAdmin())) return { error: "Accès refusé" };
+	if (!(await requireUsersAdmin())) return { error: "Accès refusé" };
 
 	const { count } = await prisma.producer.updateMany({
 		where: { id, status: "PENDING" },

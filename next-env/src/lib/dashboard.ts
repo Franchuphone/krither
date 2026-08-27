@@ -14,8 +14,20 @@ export const DASHBOARD_AREAS: DashboardArea[] = [
 	{
 		segment: "admin",
 		label: "Admin",
-		description: "Gérer les accréditations et les rôles de la plateforme.",
+		description: "Gérer les statuts d'administration de la plateforme.",
 		flag: "isAdmin",
+	},
+	{
+		segment: "users-admin",
+		label: "Utilisateurs",
+		description: "Accréditer et révoquer les utilisateurs de la plateforme.",
+		flag: "isUsersAdmin",
+	},
+	{
+		segment: "plans",
+		label: "Abonnements",
+		description: "Gérer les formules d'abonnements.",
+		flag: "isPlansAdmin",
 	},
 	{
 		segment: "producer",

@@ -26,6 +26,23 @@ export type ContractField = {
 	asValue?: boolean;
 };
 
+export const accountField: ContractField = {
+	name: "account",
+	label: "Compte",
+	type: "address",
+	placeholder: "0x…",
+};
+
+export const roleField = (
+	options: ContractField["options"],
+): ContractField => ({
+	name: "role",
+	label: "Statut",
+	type: "bytes32",
+	placeholder: "Choisir un statut",
+	options,
+});
+
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const UINT = /^\d+$/;
 const UINT_LIST = /^\d+(\s*,\s*\d+)*$/;

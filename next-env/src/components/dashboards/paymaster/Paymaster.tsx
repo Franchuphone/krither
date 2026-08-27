@@ -53,30 +53,6 @@ const Paymaster = () => {
 						<WriteCallCard
 							address={paymasterAddress}
 							abi={paymasterABI}
-							functionName="setSponsoredTarget"
-							title="Contrats sponsorisés"
-							description="Ajoute ou retire un contrat de la whitelist que le paymaster sponsorise en frais de gas."
-							icon={Target}
-							fields={[
-								{
-									name: "target",
-									label: "Contrat appelé",
-									type: "address",
-									placeholder: "0x…",
-								},
-								{
-									name: "allowed",
-									label: "Autorisé",
-									type: "bool",
-								},
-							]}
-							submitLabel="Enregistrer"
-							successMessage="Liste des contrats sponsorisés mise à jour"
-							disable={paymasterPause}
-						/>
-						<WriteCallCard
-							address={paymasterAddress}
-							abi={paymasterABI}
 							functionName="setMaxCostPerOp"
 							title="Coût maximum par opération"
 							description={
@@ -114,6 +90,31 @@ const Paymaster = () => {
 							successMessage="Compteur remis à zéro"
 							disable={paymasterPause}
 						/>
+						<WriteCallCard
+							address={paymasterAddress}
+							abi={paymasterABI}
+							functionName="setSponsoredTarget"
+							title="Contrats sponsorisés"
+							description="Ajoute ou retire un contrat de la whitelist que le paymaster sponsorise en frais de gas."
+							icon={Target}
+							fields={[
+								{
+									name: "target",
+									label: "Contrat appelé",
+									type: "address",
+									placeholder: "0x…",
+								},
+								{
+									name: "allowed",
+									label: "Autorisé",
+									type: "bool",
+								},
+							]}
+							submitLabel="Enregistrer"
+							successMessage="Liste des contrats sponsorisés mise à jour"
+							disable={paymasterPause}
+							danger
+						/>
 					</div>
 				)}
 
@@ -125,7 +126,7 @@ const Paymaster = () => {
 							functionName="depositToEntryPoint"
 							title="Alimenter l'EntryPoint"
 							description={
-								"Crédite le dépôt de gas qui paie les opérations sponsorisées.\nLe montant total déposé utilise en priorité les revenus d'abonnements stockés dans le smart contract.\nLes 2 champs sont obligatoires."
+								"Crédite le dépôt de gas qui paie les opérations sponsorisées.\nLe montant total déposé utilise en priorité le solde du contrat.\nSi la part du wallet est supèrieure au montant total, le surplus sera stocké dans le solde du contrat.\nLes 2 champs sont obligatoires."
 							}
 							icon={Fuel}
 							fields={[

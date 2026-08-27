@@ -181,7 +181,7 @@ export async function verifyLot(
 		address: registryAddress,
 		abi: registryABI,
 		functionName: "lotIds",
-		args: [account, BigInt(ref)],
+		args: [BigInt(producerId), BigInt(ref)],
 	});
 	if (idLot === BigInt(0)) return null;
 

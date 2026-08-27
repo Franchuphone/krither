@@ -128,7 +128,7 @@ export async function listProducerLots() {
 	for (const lot of lots) {
 		if (lot.status !== "DRAFT") continue;
 
-		const idLot = await reconcileMinted(lot, producer.account);
+		const idLot = await reconcileMinted(lot, producer.registryId);
 		if (idLot > BigInt(0)) {
 			lot.status = "MINTED";
 			lot.idLot = idLot;
@@ -328,13 +328,13 @@ function revertMessage(cause: unknown) {
  */
 async function reconcileMinted(
 	lot: { id: string; ref: bigint },
-	account: `0x${string}`,
+	registryId: bigint,
 ) {
 	const idLot = await serverClient.readContract({
 		address: registryAddress,
 		abi: registryABI,
 		functionName: "lotIds",
-		args: [account, lot.ref],
+		args: [registryId, lot.ref],
 	});
 
 	if (idLot > BigInt(0)) {
@@ -368,7 +368,7 @@ export async function pinLotDraft(
 	if (lot.status !== "DRAFT") return { error: "Lot déjà ancré" };
 	if (lot.items.length === 0) return { error: "Lot sans article" };
 
-	if ((await reconcileMinted(lot, producer.account)) > BigInt(0)) {
+	if ((await reconcileMinted(lot, producer.registryId)) > BigInt(0)) {
 		return { error: REVERTS.LotAlreadyExists };
 	}
 
