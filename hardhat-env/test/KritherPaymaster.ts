@@ -57,8 +57,9 @@ const validAfterOf = (validationData: bigint) =>
 
 describe("KritherPaymaster - deployment", async function () {
 	it("answers to the EntryPoint it was wired to", async function () {
-		const { paymaster, entryPoint } =
-			await networkHelpers.loadFixture(deployMockedPaymaster);
+		const { paymaster, entryPoint } = await networkHelpers.loadFixture(
+			deployMockedPaymaster,
+		);
 
 		assert.equal(
 			(await paymaster.read.entryPoint()).toLowerCase(),
@@ -67,8 +68,9 @@ describe("KritherPaymaster - deployment", async function () {
 	});
 
 	it("opens the registry to sponsorship", async function () {
-		const { paymaster, registry } =
-			await networkHelpers.loadFixture(deployMockedPaymaster);
+		const { paymaster, registry } = await networkHelpers.loadFixture(
+			deployMockedPaymaster,
+		);
 
 		assert.equal(
 			await paymaster.read.sponsoredTargets([registry.address]),
@@ -77,8 +79,9 @@ describe("KritherPaymaster - deployment", async function () {
 	});
 
 	it("opens itself to sponsorship, so onboarding calls resolve", async function () {
-		const { paymaster } =
-			await networkHelpers.loadFixture(deployMockedPaymaster);
+		const { paymaster } = await networkHelpers.loadFixture(
+			deployMockedPaymaster,
+		);
 
 		assert.equal(
 			await paymaster.read.sponsoredTargets([paymaster.address]),
@@ -87,8 +90,9 @@ describe("KritherPaymaster - deployment", async function () {
 	});
 
 	it("keeps every contract outside Krither closed", async function () {
-		const { paymaster, other } =
-			await networkHelpers.loadFixture(deployMockedPaymaster);
+		const { paymaster, other } = await networkHelpers.loadFixture(
+			deployMockedPaymaster,
+		);
 
 		assert.equal(
 			await paymaster.read.sponsoredTargets([other.account.address]),
@@ -97,8 +101,9 @@ describe("KritherPaymaster - deployment", async function () {
 	});
 
 	it("sponsors nothing until a cost ceiling is set", async function () {
-		const { registry, entryPoint } =
-			await networkHelpers.loadFixture(deployMockedPaymaster);
+		const { registry, entryPoint } = await networkHelpers.loadFixture(
+			deployMockedPaymaster,
+		);
 
 		const fresh = await viem.deployContract("KritherPaymaster", [
 			registry.address,
@@ -109,14 +114,12 @@ describe("KritherPaymaster - deployment", async function () {
 	});
 
 	it("reverts when deployed with the zero address as EntryPoint", async function () {
-		const { paymaster, registry } =
-			await networkHelpers.loadFixture(deployMockedPaymaster);
+		const { paymaster, registry } = await networkHelpers.loadFixture(
+			deployMockedPaymaster,
+		);
 
 		await viem.assertions.revertWithCustomError(
-			viem.deployContract("KritherPaymaster", [
-				registry.address,
-				zeroAddress,
-			]),
+			viem.deployContract("KritherPaymaster", [registry.address, zeroAddress]),
 			paymaster,
 			"InputAddressZero",
 		);
@@ -125,8 +128,9 @@ describe("KritherPaymaster - deployment", async function () {
 
 describe("KritherPaymaster - cost ceiling", async function () {
 	it("lets the admin cap what one operation may cost", async function () {
-		const { paymaster, admin } =
-			await networkHelpers.loadFixture(deployMockedPaymaster);
+		const { paymaster, admin } = await networkHelpers.loadFixture(
+			deployMockedPaymaster,
+		);
 
 		await paymaster.write.setMaxCostPerOp([parseEther("0.05")], {
 			account: admin.account,
@@ -136,8 +140,9 @@ describe("KritherPaymaster - cost ceiling", async function () {
 	});
 
 	it("emits MaxCostPerOpSet carrying the new ceiling", async function () {
-		const { paymaster, admin } =
-			await networkHelpers.loadFixture(deployMockedPaymaster);
+		const { paymaster, admin } = await networkHelpers.loadFixture(
+			deployMockedPaymaster,
+		);
 
 		await viem.assertions.emitWithArgs(
 			paymaster.write.setMaxCostPerOp([parseEther("0.05")], {
@@ -150,8 +155,9 @@ describe("KritherPaymaster - cost ceiling", async function () {
 	});
 
 	it("refuses a ceiling set by an account without PAYMASTER_ROLE", async function () {
-		const { paymaster, producer1 } =
-			await networkHelpers.loadFixture(deployMockedPaymaster);
+		const { paymaster, producer1 } = await networkHelpers.loadFixture(
+			deployMockedPaymaster,
+		);
 
 		await viem.assertions.revertWithCustomError(
 			paymaster.write.setMaxCostPerOp([parseEther("0.05")], {
@@ -210,10 +216,9 @@ describe("KritherPaymaster - sponsorship role", async function () {
 			paymaster.write.withdrawStake([other.account.address], {
 				account: other.account,
 			}),
-			paymaster.write.withdrawRevenue(
-				[other.account.address, PLAN_PRICE],
-				{ account: other.account },
-			),
+			paymaster.write.withdrawRevenue([other.account.address, PLAN_PRICE], {
+				account: other.account,
+			}),
 		]) {
 			await viem.assertions.revertWithCustomError(
 				withdrawal,
@@ -223,7 +228,7 @@ describe("KritherPaymaster - sponsorship role", async function () {
 		}
 	});
 
-	it("leaves opening a plan to the registry admin", async function () {
+	it("leaves opening a plan to the plans admin", async function () {
 		const { subscriptions, registry, admin, other } =
 			await networkHelpers.loadFixture(deploySubscriptions);
 
@@ -246,13 +251,13 @@ describe("KritherPaymaster - sponsorship role", async function () {
 
 describe("KritherPaymaster - sponsorship scope", async function () {
 	it("lets the admin open another Krither contract", async function () {
-		const { paymaster, admin, other } =
-			await networkHelpers.loadFixture(deployMockedPaymaster);
-
-		await paymaster.write.setSponsoredTarget(
-			[other.account.address, true],
-			{ account: admin.account },
+		const { paymaster, admin, other } = await networkHelpers.loadFixture(
+			deployMockedPaymaster,
 		);
+
+		await paymaster.write.setSponsoredTarget([other.account.address, true], {
+			account: admin.account,
+		});
 
 		assert.equal(
 			await paymaster.read.sponsoredTargets([other.account.address]),
@@ -261,8 +266,9 @@ describe("KritherPaymaster - sponsorship scope", async function () {
 	});
 
 	it("lets the admin close a contract again", async function () {
-		const { paymaster, registry, admin } =
-			await networkHelpers.loadFixture(deployMockedPaymaster);
+		const { paymaster, registry, admin } = await networkHelpers.loadFixture(
+			deployMockedPaymaster,
+		);
 
 		await paymaster.write.setSponsoredTarget([registry.address, false], {
 			account: admin.account,
@@ -275,8 +281,9 @@ describe("KritherPaymaster - sponsorship scope", async function () {
 	});
 
 	it("emits SponsoredTargetSet on both", async function () {
-		const { paymaster, admin, other } =
-			await networkHelpers.loadFixture(deployMockedPaymaster);
+		const { paymaster, admin, other } = await networkHelpers.loadFixture(
+			deployMockedPaymaster,
+		);
 
 		await viem.assertions.emitWithArgs(
 			paymaster.write.setSponsoredTarget([other.account.address, true], {
@@ -285,16 +292,16 @@ describe("KritherPaymaster - sponsorship scope", async function () {
 			paymaster,
 			"SponsoredTargetSet",
 			[
-				(a: string) =>
-					a.toLowerCase() === other.account.address.toLowerCase(),
+				(a: string) => a.toLowerCase() === other.account.address.toLowerCase(),
 				true,
 			],
 		);
 	});
 
 	it("refuses opening a contract from an account without PAYMASTER_ROLE", async function () {
-		const { paymaster, producer1, other } =
-			await networkHelpers.loadFixture(deployMockedPaymaster);
+		const { paymaster, producer1, other } = await networkHelpers.loadFixture(
+			deployMockedPaymaster,
+		);
 
 		await viem.assertions.revertWithCustomError(
 			paymaster.write.setSponsoredTarget([other.account.address, true], {
@@ -306,8 +313,9 @@ describe("KritherPaymaster - sponsorship scope", async function () {
 	});
 
 	it("refuses opening the zero address", async function () {
-		const { paymaster, admin } =
-			await networkHelpers.loadFixture(deployMockedPaymaster);
+		const { paymaster, admin } = await networkHelpers.loadFixture(
+			deployMockedPaymaster,
+		);
 
 		await viem.assertions.revertWithCustomError(
 			paymaster.write.setSponsoredTarget([zeroAddress, true], {
@@ -321,8 +329,7 @@ describe("KritherPaymaster - sponsorship scope", async function () {
 
 describe("KritherPaymaster - gas budget", async function () {
 	it("reports the budget it holds at the EntryPoint", async function () {
-		const { paymaster } =
-			await networkHelpers.loadFixture(deployRealPaymaster);
+		const { paymaster } = await networkHelpers.loadFixture(deployRealPaymaster);
 
 		assert.equal(await paymaster.read.entryPointBalance(), PAYMASTER_DEPOSIT);
 	});
@@ -360,6 +367,56 @@ describe("KritherPaymaster - gas budget", async function () {
 		assert.equal(
 			await paymaster.read.entryPointBalance(),
 			PAYMASTER_DEPOSIT + PLAN_PRICE,
+		);
+	});
+
+	it("credits the EntryPoint with the ether the caller sent", async function () {
+		const { paymaster, admin } =
+			await networkHelpers.loadFixture(deployRealPaymaster);
+
+		const publicClient = await viem.getPublicClient();
+		const balanceBefore = await publicClient.getBalance({
+			address: admin.account.address,
+		});
+
+		const hash = await paymaster.write.depositToEntryPoint([PLAN_PRICE], {
+			account: admin.account,
+			value: PLAN_PRICE,
+		});
+		const { gasUsed, effectiveGasPrice } =
+			await publicClient.getTransactionReceipt({ hash });
+
+		assert.equal(
+			await paymaster.read.entryPointBalance(),
+			PAYMASTER_DEPOSIT + PLAN_PRICE,
+		);
+		assert.equal(
+			await publicClient.getBalance({ address: paymaster.address }),
+			0n,
+		);
+		assert.equal(
+			await publicClient.getBalance({ address: admin.account.address }),
+			balanceBefore - PLAN_PRICE - gasUsed * effectiveGasPrice,
+		);
+	});
+
+	it("reports a payable deposit as entirely sent, nothing held", async function () {
+		const { paymaster, admin } =
+			await networkHelpers.loadFixture(deployRealPaymaster);
+
+		await viem.assertions.emitWithArgs(
+			paymaster.write.depositToEntryPoint([PLAN_PRICE], {
+				account: admin.account,
+				value: PLAN_PRICE,
+			}),
+			paymaster,
+			"FundsDeposited",
+			[
+				"deposit",
+				(a: string) => a.toLowerCase() === admin.account.address.toLowerCase(),
+				PLAN_PRICE,
+				0n,
+			],
 		);
 	});
 
@@ -460,8 +517,7 @@ describe("KritherPaymaster - gas budget", async function () {
 			"FundsWithdrawn",
 			[
 				"deposit",
-				(a: string) =>
-					a.toLowerCase() === other.account.address.toLowerCase(),
+				(a: string) => a.toLowerCase() === other.account.address.toLowerCase(),
 				PAYMASTER_DEPOSIT,
 			],
 		);
@@ -609,8 +665,7 @@ describe("KritherPaymaster - stake", async function () {
 			"FundsWithdrawn",
 			[
 				"stake",
-				(a: string) =>
-					a.toLowerCase() === other.account.address.toLowerCase(),
+				(a: string) => a.toLowerCase() === other.account.address.toLowerCase(),
 				PAYMASTER_STAKE,
 			],
 		);
@@ -640,10 +695,9 @@ describe("KritherPaymaster - revenue", async function () {
 		);
 
 		await viem.assertions.balancesHaveChanged(
-			paymaster.write.withdrawRevenue(
-				[other.account.address, PLAN_PRICE],
-				{ account: admin.account },
-			),
+			paymaster.write.withdrawRevenue([other.account.address, PLAN_PRICE], {
+				account: admin.account,
+			}),
 			[{ address: other.account.address, amount: PLAN_PRICE }],
 		);
 	});
@@ -654,16 +708,14 @@ describe("KritherPaymaster - revenue", async function () {
 		);
 
 		await viem.assertions.emitWithArgs(
-			paymaster.write.withdrawRevenue(
-				[other.account.address, PLAN_PRICE],
-				{ account: admin.account },
-			),
+			paymaster.write.withdrawRevenue([other.account.address, PLAN_PRICE], {
+				account: admin.account,
+			}),
 			paymaster,
 			"FundsWithdrawn",
 			[
 				"revenue",
-				(a: string) =>
-					a.toLowerCase() === other.account.address.toLowerCase(),
+				(a: string) => a.toLowerCase() === other.account.address.toLowerCase(),
 				PLAN_PRICE,
 			],
 		);
@@ -690,10 +742,9 @@ describe("KritherPaymaster - revenue", async function () {
 		);
 
 		await viem.assertions.revertWithCustomError(
-			paymaster.write.withdrawRevenue(
-				[other.account.address, PLAN_PRICE],
-				{ account: producer1.account },
-			),
+			paymaster.write.withdrawRevenue([other.account.address, PLAN_PRICE], {
+				account: producer1.account,
+			}),
 			paymaster,
 			"NotAccredited",
 		);
@@ -804,8 +855,9 @@ describe("KritherPaymaster - validating an operation", async function () {
 	});
 
 	it("refuses a caller that is not the EntryPoint", async function () {
-		const { paymaster, registry, producer1 } =
-			await networkHelpers.loadFixture(deployMockedSubscriber);
+		const { paymaster, registry, producer1 } = await networkHelpers.loadFixture(
+			deployMockedSubscriber,
+		);
 
 		const userOp = buildUserOp({
 			sender: producer1.account.address,
@@ -958,9 +1010,7 @@ describe("KritherPaymaster - validating an operation", async function () {
 		const [, , , , , expiresAt] = await paymaster.read.subscriptions([
 			producer1.account.address,
 		]);
-		const { timestamp } = await (
-			await viem.getPublicClient()
-		).getBlock();
+		const { timestamp } = await (await viem.getPublicClient()).getBlock();
 
 		// the paymaster cannot read the clock, so an expired subscription is
 		// refused by the window it hands back, not by a revert
@@ -1043,13 +1093,13 @@ describe("KritherPaymaster - validating an operation", async function () {
 	});
 
 	it("refuses an account whose accreditation was revoked", async function () {
-		const { paymaster, entryPoint, registry, admin, producer1 } =
+		const { paymaster, entryPoint, registry, usersAdmin, producer1 } =
 			await networkHelpers.loadFixture(deployMockedSubscriber);
 
 		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
 		await registry.write.revokeRole(
 			[PRODUCER_ROLE, producer1.account.address],
-			{ account: admin.account },
+			{ account: usersAdmin.account },
 		);
 
 		const userOp = buildUserOp({
@@ -1364,8 +1414,9 @@ describe("KritherPaymaster - onboarding", async function () {
 	});
 
 	it("refuses a free operation to an account Krither never accredited", async function () {
-		const { paymaster, entryPoint, other } =
-			await networkHelpers.loadFixture(deployMockedSubscriber);
+		const { paymaster, entryPoint, other } = await networkHelpers.loadFixture(
+			deployMockedSubscriber,
+		);
 
 		await viem.assertions.revertWithCustomError(
 			entryPoint.write.validate([
@@ -1380,13 +1431,13 @@ describe("KritherPaymaster - onboarding", async function () {
 	});
 
 	it("refuses a free operation buying a plan sold against another role", async function () {
-		const { paymaster, registry, entryPoint, admin, producer2 } =
+		const { paymaster, registry, entryPoint, plansAdmin, producer2 } =
 			await networkHelpers.loadFixture(deployMockedSubscriber);
 
 		const RESELLER_ROLE = await registry.read.RESELLER_ROLE();
 		await paymaster.write.addPlan(
 			[RESELLER_ROLE, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD],
-			{ account: admin.account },
+			{ account: plansAdmin.account },
 		);
 
 		await viem.assertions.revertWithCustomError(

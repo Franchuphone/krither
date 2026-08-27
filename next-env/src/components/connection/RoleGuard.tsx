@@ -9,12 +9,16 @@ import {
 	DEFAULT_ADMIN_ROLE,
 	PAUSER_ROLE,
 	PAYMASTER_ROLE,
+	PLANS_ADMIN_ROLE,
 	PRODUCER_ROLE,
+	USERS_ADMIN_ROLE,
 } from "@/lib/roles";
 
 export type RolesContext = {
 	hasRole?: boolean;
 	isAdmin?: boolean;
+	isUsersAdmin?: boolean;
+	isPlansAdmin?: boolean;
 	isProducer?: boolean;
 	isPauser?: boolean;
 	isPaymaster?: boolean;
@@ -48,6 +52,22 @@ const RoleGuard = ({ children }: { children: ReactNode }) => {
 		query: { enabled: !!registryAddress && !!connected },
 	});
 
+	const { data: isUsersAdmin, isLoading: usersAdminLoading } = useReadContract({
+		address: registryAddress,
+		abi: registryABI,
+		functionName: "hasRole",
+		args: [USERS_ADMIN_ROLE, connected as `0x${string}`],
+		query: { enabled: !!registryAddress && !!connected },
+	});
+
+	const { data: isPlansAdmin, isLoading: plansAdminLoading } = useReadContract({
+		address: registryAddress,
+		abi: registryABI,
+		functionName: "hasRole",
+		args: [PLANS_ADMIN_ROLE, connected as `0x${string}`],
+		query: { enabled: !!registryAddress && !!connected },
+	});
+
 	const { data: isProducer, isLoading: producerLoading } = useReadContract({
 		address: registryAddress,
 		abi: registryABI,
@@ -72,10 +92,18 @@ const RoleGuard = ({ children }: { children: ReactNode }) => {
 		query: { enabled: !!registryAddress && !!connected },
 	});
 
-	const hasRole = isAdmin || isProducer || isPauser || isPaymaster;
+	const hasRole =
+		isAdmin ||
+		isUsersAdmin ||
+		isPlansAdmin ||
+		isProducer ||
+		isPauser ||
+		isPaymaster;
 	const isResolving =
 		!connected ||
 		adminLoading ||
+		usersAdminLoading ||
+		plansAdminLoading ||
 		producerLoading ||
 		pauserLoading ||
 		paymasterLoading;
@@ -89,6 +117,8 @@ const RoleGuard = ({ children }: { children: ReactNode }) => {
 			value={{
 				hasRole,
 				isAdmin,
+				isUsersAdmin,
+				isPlansAdmin,
 				isProducer,
 				isPauser,
 				isPaymaster,

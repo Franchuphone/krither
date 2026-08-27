@@ -1,24 +1,26 @@
 {
-  "name": "hardhat-env",
-  "version": "1.0.0",
-  "type": "module",
-  "packageManager": "pnpm@11.14.0",
-  "scripts": {
-    "test:quiet": "hardhat test 2>&1 | grep -E '✔|^\\s+[0-9]+\\) |passing|failing' | sed '/failing/q'"
-  },
-  "devDependencies": {
-    "@account-abstraction/contracts": "^0.8.0",
-    "@nomicfoundation/hardhat-ignition": "^3.1.8",
-    "@nomicfoundation/hardhat-keystore": "3.0.12",
-    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.7",
-    "@nomicfoundation/hardhat-verify": "3.0.21",
-    "@types/node": "^22.20.1",
-    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
-    "hardhat": "^3.10.0",
-    "typescript": "~6.0.3",
-    "viem": "^2.55.4"
-  },
-  "dependencies": {
-    "@openzeppelin/contracts": "^5.6.1"
-  }
+	"name": "hardhat-env",
+	"version": "1.0.0",
+	"type": "module",
+	"packageManager": "pnpm@11.14.0",
+	"scripts": {
+		"test:quiet": "hardhat test 2>&1 | awk '/^[0-9]+ failing/{print; exit} {print}'",
+		"sync:abi": "node scripts/sync-abi.ts",
+		"deploy:sepolia": "hardhat compile && hardhat ignition deploy ignition/modules/Krither.ts --network sepolia --verify"
+	},
+	"devDependencies": {
+		"@account-abstraction/contracts": "^0.8.0",
+		"@nomicfoundation/hardhat-ignition": "^3.1.8",
+		"@nomicfoundation/hardhat-keystore": "3.0.12",
+		"@nomicfoundation/hardhat-toolbox-viem": "^5.0.7",
+		"@nomicfoundation/hardhat-verify": "3.0.21",
+		"@types/node": "^22.20.1",
+		"forge-std": "github:foundry-rs/forge-std#v1.9.4",
+		"hardhat": "^3.10.0",
+		"typescript": "~6.0.3",
+		"viem": "^2.55.4"
+	},
+	"dependencies": {
+		"@openzeppelin/contracts": "^5.6.1"
+	}
 }

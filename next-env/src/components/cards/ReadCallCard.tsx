@@ -14,6 +14,7 @@ import {
 	toArgument,
 	type ContractField,
 } from "@/lib/contractFields";
+import { cn } from "@/lib/utils";
 
 type ReadCallCardProps = {
 	address: `0x${string}`;
@@ -111,7 +112,9 @@ const ReadCallCard = ({
 			/>
 
 			{fields.length > 0 && (
-				<CardContent className="grid gap-3 sm:grid-cols-2">
+				<CardContent
+					className={cn("grid gap-3", fields.length > 1 && "sm:grid-cols-2")}
+				>
 					{fields.map((field) => (
 						<ContractFieldInput
 							key={field.name}

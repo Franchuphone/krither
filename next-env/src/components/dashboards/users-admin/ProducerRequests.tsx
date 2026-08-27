@@ -9,7 +9,7 @@ import {
 	approveProducer,
 	listProducerRequests,
 	rejectProducer,
-} from "@/app/actions/admin/producers";
+} from "@/app/actions/users-admin/producers";
 import SessionGate from "@/components/connection/SessionGate";
 import DossierDetails from "@/components/cards/DossierDetails";
 import { Button } from "@/components/ui/button";
