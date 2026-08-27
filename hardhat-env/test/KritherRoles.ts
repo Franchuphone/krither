@@ -6,6 +6,7 @@ import {
 	CID,
 	NEW_CID,
 	NEW_REF,
+	REF,
 	deployAccredited,
 	deployForPause,
 	deployRegistry,
@@ -17,15 +18,15 @@ import {
 } from "./helpers/fixtures.js";
 
 describe("KritherRoles - producer accreditation", async function () {
-	it("lets the admin grant and revoke PRODUCER_ROLE", async function () {
-		const { registry, admin, producer1 } =
+	it("lets the users admin grant and revoke PRODUCER_ROLE", async function () {
+		const { registry, usersAdmin, producer1 } =
 			await networkHelpers.loadFixture(deployRegistry);
 
 		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
 
 		await registry.write.grantRole(
 			[PRODUCER_ROLE, producer1.account.address],
-			{ account: admin.account },
+			{ account: usersAdmin.account },
 		);
 		assert.equal(
 			await registry.read.hasRole([
@@ -37,7 +38,7 @@ describe("KritherRoles - producer accreditation", async function () {
 
 		await registry.write.revokeRole(
 			[PRODUCER_ROLE, producer1.account.address],
-			{ account: admin.account },
+			{ account: usersAdmin.account },
 		);
 		assert.equal(
 			await registry.read.hasRole([
@@ -117,7 +118,7 @@ describe("KritherRoles - producer id assignment (_grantRole)", async function ()
 	});
 
 	it("does not consume a new id when re-granting an existing producer", async function () {
-		const { registry, admin, producer1, producer2 } =
+		const { registry, usersAdmin, producer1, producer2 } =
 			await networkHelpers.loadFixture(deployRegistry);
 
 		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
@@ -125,17 +126,17 @@ describe("KritherRoles - producer id assignment (_grantRole)", async function ()
 		// producer1 -> id 1
 		await registry.write.grantRole(
 			[PRODUCER_ROLE, producer1.account.address],
-			{ account: admin.account },
+			{ account: usersAdmin.account },
 		);
 		// redundant grant: must NOT bump the counter
 		await registry.write.grantRole(
 			[PRODUCER_ROLE, producer1.account.address],
-			{ account: admin.account },
+			{ account: usersAdmin.account },
 		);
 		// producer2 must still get id 2, proving the redundant grant consumed nothing
 		await registry.write.grantRole(
 			[PRODUCER_ROLE, producer2.account.address],
-			{ account: admin.account },
+			{ account: usersAdmin.account },
 		);
 
 		assert.equal(
@@ -149,18 +150,18 @@ describe("KritherRoles - producer id assignment (_grantRole)", async function ()
 	});
 
 	it("gives a revoked producer its original id back when re-accredited", async function () {
-		const { registry, admin, producer1, producer4 } =
+		const { registry, usersAdmin, producer1, producer4 } =
 			await networkHelpers.loadFixture(deployThreeProducers);
 
 		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
 
 		await registry.write.revokeRole(
 			[PRODUCER_ROLE, producer1.account.address],
-			{ account: admin.account },
+			{ account: usersAdmin.account },
 		);
 		await registry.write.grantRole(
 			[PRODUCER_ROLE, producer1.account.address],
-			{ account: admin.account },
+			{ account: usersAdmin.account },
 		);
 
 		assert.equal(
@@ -171,7 +172,7 @@ describe("KritherRoles - producer id assignment (_grantRole)", async function ()
 		// the re-accreditation consumed no id: the next producer still gets 4
 		await registry.write.grantRole(
 			[PRODUCER_ROLE, producer4.account.address],
-			{ account: admin.account },
+			{ account: usersAdmin.account },
 		);
 
 		assert.equal(
@@ -650,6 +651,40 @@ describe("KritherRoles - producer reassignment", async function () {
 		assert.equal(
 			await registry.read.producerByAddr([producer4.account.address]),
 			1n,
+		);
+	});
+
+	it("keeps a lot reachable by producer id and reference after a rotation", async function () {
+		const { registry, admin, producer1, producer2 } =
+			await networkHelpers.loadFixture(deployWithLot);
+
+		const producer1Id = await registry.read.producerByAddr([
+			producer1.account.address,
+		]);
+
+		await registry.write.reassignProducer(
+			[producer1.account.address, producer2.account.address],
+			{ account: admin.account },
+		);
+
+		assert.equal(await registry.read.lotIds([producer1Id, REF]), 1n);
+	});
+
+	it("refuses a reference the producer had already used before a rotation", async function () {
+		const { registry, admin, producer1, producer2 } =
+			await networkHelpers.loadFixture(deployWithLot);
+
+		await registry.write.reassignProducer(
+			[producer1.account.address, producer2.account.address],
+			{ account: admin.account },
+		);
+
+		await viem.assertions.revertWithCustomError(
+			registry.write.mintLot([[500n], NEW_CID, REF], {
+				account: producer2.account,
+			}),
+			registry,
+			"LotAlreadyExists",
 		);
 	});
 });

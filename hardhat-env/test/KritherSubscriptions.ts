@@ -69,21 +69,21 @@ describe("KritherSubscriptions - adding plans", async function () {
 	});
 
 	it("returns the id of the plan it created", async function () {
-		const { subscriptions, registry, admin } =
+		const { subscriptions, registry, plansAdmin } =
 			await networkHelpers.loadFixture(deploySubscriptions);
 
 		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
 
 		const { result } = await subscriptions.simulate.addPlan(
 			[PRODUCER_ROLE, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD],
-			{ account: admin.account.address },
+			{ account: plansAdmin.account.address },
 		);
 
 		assert.equal(result, 0);
 	});
 
 	it("emits PlanSet carrying the terms it opened", async function () {
-		const { subscriptions, registry, admin } =
+		const { subscriptions, registry, plansAdmin } =
 			await networkHelpers.loadFixture(deploySubscriptions);
 
 		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
@@ -91,7 +91,7 @@ describe("KritherSubscriptions - adding plans", async function () {
 		await viem.assertions.emitWithArgs(
 			subscriptions.write.addPlan(
 				[PRODUCER_ROLE, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD],
-				{ account: admin.account },
+				{ account: plansAdmin.account },
 			),
 			subscriptions,
 			"PlanSet",
@@ -100,14 +100,14 @@ describe("KritherSubscriptions - adding plans", async function () {
 	});
 
 	it("numbers plans in creation order", async function () {
-		const { subscriptions, registry, admin } =
+		const { subscriptions, registry, plansAdmin } =
 			await networkHelpers.loadFixture(deployWithProducerPlan);
 
 		const RESELLER_ROLE = await registry.read.RESELLER_ROLE();
 
 		await subscriptions.write.addPlan(
 			[RESELLER_ROLE, PLAN_PRICE, 250, MONTHLY_PERIOD],
-			{ account: admin.account },
+			{ account: plansAdmin.account },
 		);
 
 		const [role, , quota] = await subscriptions.read.planTerms([1]);
@@ -117,7 +117,7 @@ describe("KritherSubscriptions - adding plans", async function () {
 		assert.equal(quota, 250);
 	});
 
-	it("refuses a plan added by an account without DEFAULT_ADMIN_ROLE", async function () {
+	it("refuses a plan added by an account without PLANS_ADMIN_ROLE", async function () {
 		const { subscriptions, registry, producer1 } =
 			await networkHelpers.loadFixture(deploySubscriptions);
 
@@ -134,7 +134,7 @@ describe("KritherSubscriptions - adding plans", async function () {
 	});
 
 	it("refuses a plan selling no transactions", async function () {
-		const { subscriptions, registry, admin } =
+		const { subscriptions, registry, plansAdmin } =
 			await networkHelpers.loadFixture(deploySubscriptions);
 
 		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
@@ -142,7 +142,7 @@ describe("KritherSubscriptions - adding plans", async function () {
 		await viem.assertions.revertWithCustomError(
 			subscriptions.write.addPlan(
 				[PRODUCER_ROLE, PLAN_PRICE, 0, MONTHLY_PERIOD],
-				{ account: admin.account },
+				{ account: plansAdmin.account },
 			),
 			subscriptions,
 			"InputNumberNull",
@@ -150,7 +150,7 @@ describe("KritherSubscriptions - adding plans", async function () {
 	});
 
 	it("refuses a plan lasting no time", async function () {
-		const { subscriptions, registry, admin } =
+		const { subscriptions, registry, plansAdmin } =
 			await networkHelpers.loadFixture(deploySubscriptions);
 
 		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
@@ -158,7 +158,7 @@ describe("KritherSubscriptions - adding plans", async function () {
 		await viem.assertions.revertWithCustomError(
 			subscriptions.write.addPlan(
 				[PRODUCER_ROLE, PLAN_PRICE, MONTHLY_QUOTA, 0],
-				{ account: admin.account },
+				{ account: plansAdmin.account },
 			),
 			subscriptions,
 			"InputNumberNull",
@@ -167,14 +167,14 @@ describe("KritherSubscriptions - adding plans", async function () {
 });
 
 describe("KritherSubscriptions - updating plans", async function () {
-	it("lets the admin reprice, reshape and retire a plan", async function () {
-		const { subscriptions, admin } = await networkHelpers.loadFixture(
+	it("lets the plans admin reprice, reshape and retire a plan", async function () {
+		const { subscriptions, plansAdmin } = await networkHelpers.loadFixture(
 			deployWithProducerPlan,
 		);
 
 		await subscriptions.write.setPlan(
 			[0, PLAN_PRICE * 2n, 2000, MONTHLY_PERIOD * 2, false],
-			{ account: admin.account },
+			{ account: plansAdmin.account },
 		);
 
 		const [, price, quota, period, enabled] =
@@ -187,16 +187,15 @@ describe("KritherSubscriptions - updating plans", async function () {
 	});
 
 	it("emits PlanSet on update", async function () {
-		const { subscriptions, registry, admin } =
+		const { subscriptions, registry, plansAdmin } =
 			await networkHelpers.loadFixture(deployWithProducerPlan);
 
 		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
 
 		await viem.assertions.emitWithArgs(
-			subscriptions.write.setPlan(
-				[0, PLAN_PRICE, 2000, MONTHLY_PERIOD, true],
-				{ account: admin.account },
-			),
+			subscriptions.write.setPlan([0, PLAN_PRICE, 2000, MONTHLY_PERIOD, true], {
+				account: plansAdmin.account,
+			}),
 			subscriptions,
 			"PlanSet",
 			[0, PRODUCER_ROLE, PLAN_PRICE, 2000, MONTHLY_PERIOD, true],
@@ -204,13 +203,13 @@ describe("KritherSubscriptions - updating plans", async function () {
 	});
 
 	it("never rewrites the role a plan is sold against", async function () {
-		const { subscriptions, registry, admin } =
+		const { subscriptions, registry, plansAdmin } =
 			await networkHelpers.loadFixture(deployWithProducerPlan);
 
 		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
 
 		await subscriptions.write.setPlan([0, 0n, 1, 1, false], {
-			account: admin.account,
+			account: plansAdmin.account,
 		});
 
 		const [role] = await subscriptions.read.planTerms([0]);
@@ -219,21 +218,21 @@ describe("KritherSubscriptions - updating plans", async function () {
 	});
 
 	it("refuses updating a plan that was never created", async function () {
-		const { subscriptions, admin } = await networkHelpers.loadFixture(
+		const { subscriptions, plansAdmin } = await networkHelpers.loadFixture(
 			deployWithProducerPlan,
 		);
 
 		await viem.assertions.revertWithCustomError(
 			subscriptions.write.setPlan(
 				[1, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD, true],
-				{ account: admin.account },
+				{ account: plansAdmin.account },
 			),
 			subscriptions,
 			"PlanUnknown",
 		);
 	});
 
-	it("refuses an update from an account without DEFAULT_ADMIN_ROLE", async function () {
+	it("refuses an update from an account without PLANS_ADMIN_ROLE", async function () {
 		const { subscriptions, producer1 } = await networkHelpers.loadFixture(
 			deployWithProducerPlan,
 		);
@@ -249,30 +248,28 @@ describe("KritherSubscriptions - updating plans", async function () {
 	});
 
 	it("refuses an update selling no transactions", async function () {
-		const { subscriptions, admin } = await networkHelpers.loadFixture(
+		const { subscriptions, plansAdmin } = await networkHelpers.loadFixture(
 			deployWithProducerPlan,
 		);
 
 		await viem.assertions.revertWithCustomError(
-			subscriptions.write.setPlan(
-				[0, PLAN_PRICE, 0, MONTHLY_PERIOD, true],
-				{ account: admin.account },
-			),
+			subscriptions.write.setPlan([0, PLAN_PRICE, 0, MONTHLY_PERIOD, true], {
+				account: plansAdmin.account,
+			}),
 			subscriptions,
 			"InputNumberNull",
 		);
 	});
 
 	it("refuses an update lasting no time", async function () {
-		const { subscriptions, admin } = await networkHelpers.loadFixture(
+		const { subscriptions, plansAdmin } = await networkHelpers.loadFixture(
 			deployWithProducerPlan,
 		);
 
 		await viem.assertions.revertWithCustomError(
-			subscriptions.write.setPlan(
-				[0, PLAN_PRICE, MONTHLY_QUOTA, 0, true],
-				{ account: admin.account },
-			),
+			subscriptions.write.setPlan([0, PLAN_PRICE, MONTHLY_QUOTA, 0, true], {
+				account: plansAdmin.account,
+			}),
 			subscriptions,
 			"InputNumberNull",
 		);
@@ -335,9 +332,7 @@ describe("KritherSubscriptions - buying a subscription", async function () {
 			await networkHelpers.loadFixture(deploySubscribed);
 
 		assert.equal(
-			await subscriptions.read.remainingQuota([
-				producer1.account.address,
-			]),
+			await subscriptions.read.remainingQuota([producer1.account.address]),
 			MONTHLY_QUOTA,
 		);
 	});
@@ -388,12 +383,12 @@ describe("KritherSubscriptions - buying a subscription", async function () {
 	});
 
 	it("refuses a plan that has been retired", async function () {
-		const { subscriptions, admin, producer1 } =
+		const { subscriptions, plansAdmin, producer1 } =
 			await networkHelpers.loadFixture(deployAccreditedSubscriber);
 
 		await subscriptions.write.setPlan(
 			[0, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD, false],
-			{ account: admin.account },
+			{ account: plansAdmin.account },
 		);
 
 		await viem.assertions.revertWithCustomError(
@@ -447,12 +442,12 @@ describe("KritherSubscriptions - renewing", async function () {
 	});
 
 	it("adopts the plan's current terms", async function () {
-		const { subscriptions, admin, producer1 } =
+		const { subscriptions, plansAdmin, producer1 } =
 			await networkHelpers.loadFixture(deploySubscribed);
 
 		await subscriptions.write.setPlan(
 			[0, PLAN_PRICE, 2000, MONTHLY_PERIOD, true],
-			{ account: admin.account },
+			{ account: plansAdmin.account },
 		);
 		await subscriptions.write.subscribe([0], {
 			account: producer1.account,
@@ -470,8 +465,9 @@ describe("KritherSubscriptions - renewing", async function () {
 		const { subscriptions, producer1 } =
 			await networkHelpers.loadFixture(deploySubscribed);
 
-		const [, , , , , expiresAtFirst] =
-			await subscriptions.read.subscriptions([producer1.account.address]);
+		const [, , , , , expiresAtFirst] = await subscriptions.read.subscriptions([
+			producer1.account.address,
+		]);
 
 		for (let i = 0; i < 11; ++i) {
 			await subscriptions.write.subscribe([0], {
@@ -480,8 +476,9 @@ describe("KritherSubscriptions - renewing", async function () {
 			});
 		}
 
-		const [, quota, , , , expiresAt] =
-			await subscriptions.read.subscriptions([producer1.account.address]);
+		const [, quota, , , , expiresAt] = await subscriptions.read.subscriptions([
+			producer1.account.address,
+		]);
 
 		assert.equal(expiresAt, expiresAtFirst + BigInt(11 * MONTHLY_PERIOD));
 		assert.equal(quota, MONTHLY_QUOTA);
@@ -508,9 +505,7 @@ describe("KritherSubscriptions - windows and expiry", async function () {
 		// the stored window is stale, yet the view compensates for it
 		assert.equal(periodEnd < BigInt(now), true);
 		assert.equal(
-			await subscriptions.read.remainingQuota([
-				producer1.account.address,
-			]),
+			await subscriptions.read.remainingQuota([producer1.account.address]),
 			MONTHLY_QUOTA,
 		);
 	});
@@ -522,9 +517,7 @@ describe("KritherSubscriptions - windows and expiry", async function () {
 		await networkHelpers.time.increase(MONTHLY_PERIOD + 1);
 
 		assert.equal(
-			await subscriptions.read.remainingQuota([
-				producer1.account.address,
-			]),
+			await subscriptions.read.remainingQuota([producer1.account.address]),
 			0,
 		);
 	});
@@ -582,7 +575,7 @@ describe("KritherSubscriptions - pause (SecOps)", async function () {
 	});
 
 	it("freezes opening a plan while paused", async function () {
-		const { subscriptions, registry, admin, pauser } =
+		const { subscriptions, registry, plansAdmin, pauser } =
 			await networkHelpers.loadFixture(deploySubscriptionsForPause);
 
 		const PRODUCER_ROLE = await registry.read.PRODUCER_ROLE();
@@ -591,7 +584,7 @@ describe("KritherSubscriptions - pause (SecOps)", async function () {
 		await viem.assertions.revertWithCustomError(
 			subscriptions.write.addPlan(
 				[PRODUCER_ROLE, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD],
-				{ account: admin.account },
+				{ account: plansAdmin.account },
 			),
 			subscriptions,
 			"EnforcedPause",
@@ -599,7 +592,7 @@ describe("KritherSubscriptions - pause (SecOps)", async function () {
 	});
 
 	it("freezes repricing a plan while paused", async function () {
-		const { subscriptions, admin, pauser } =
+		const { subscriptions, plansAdmin, pauser } =
 			await networkHelpers.loadFixture(deploySubscriptionsForPause);
 
 		await subscriptions.write.pause({ account: pauser.account });
@@ -607,7 +600,7 @@ describe("KritherSubscriptions - pause (SecOps)", async function () {
 		await viem.assertions.revertWithCustomError(
 			subscriptions.write.setPlan(
 				[0, PLAN_PRICE * 2n, MONTHLY_QUOTA, MONTHLY_PERIOD, true],
-				{ account: admin.account },
+				{ account: plansAdmin.account },
 			),
 			subscriptions,
 			"EnforcedPause",

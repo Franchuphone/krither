@@ -101,6 +101,7 @@ describe("KritherRegistry - lot creation", async function () {
 			"LotCreated",
 			[
 				1n,
+				1n,
 				(producer: string) =>
 					producer.toLowerCase() ===
 					producer1.account.address.toLowerCase(),
@@ -133,24 +134,15 @@ describe("KritherRegistry - lot creation", async function () {
 			account: producer1.account,
 		});
 
-		assert.equal(
-			await registry.read.lotIds([producer1.account.address, REF]),
-			1n,
-		);
+		assert.equal(await registry.read.lotIds([1n, REF]), 1n);
 	});
 
 	it("keeps the same reference apart for two producers", async function () {
 		const { registry, producer1, producer2 } =
 			await networkHelpers.loadFixture(deployTwoLots);
 
-		assert.equal(
-			await registry.read.lotIds([producer1.account.address, REF]),
-			1n,
-		);
-		assert.equal(
-			await registry.read.lotIds([producer2.account.address, REF]),
-			2n,
-		);
+		assert.equal(await registry.read.lotIds([1n, REF]), 1n);
+		assert.equal(await registry.read.lotIds([2n, REF]), 2n);
 	});
 
 	it("rejects a reference the producer has already used", async function () {

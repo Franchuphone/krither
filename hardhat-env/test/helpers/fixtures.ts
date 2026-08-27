@@ -62,11 +62,20 @@ export async function deployRegistry() {
 		other,
 		pauser,
 		usersAdmin,
+		plansAdmin,
 	] = await viem.getWalletClients();
 
 	const registry = await viem.deployContract("KritherRegistry", [
 		admin.account.address,
 	]);
+
+	const USERS_ADMIN_ROLE = await registry.read.USERS_ADMIN_ROLE();
+	await registry.write.grantRole(
+		[USERS_ADMIN_ROLE, usersAdmin.account.address],
+		{
+			account: admin.account,
+		},
+	);
 
 	return {
 		registry,
@@ -78,6 +87,7 @@ export async function deployRegistry() {
 		other,
 		pauser,
 		usersAdmin,
+		plansAdmin,
 	};
 }
 
@@ -88,7 +98,7 @@ export async function deployAccredited() {
 
 	await fixture.registry.write.grantRole(
 		[PRODUCER_ROLE, fixture.producer1.account.address],
-		{ account: fixture.admin.account },
+		{ account: fixture.usersAdmin.account },
 	);
 
 	return fixture;
@@ -123,11 +133,11 @@ export async function deployTwoLots() {
 
 	await fixture.registry.write.grantRole(
 		[PRODUCER_ROLE, fixture.producer1.account.address],
-		{ account: fixture.admin.account },
+		{ account: fixture.usersAdmin.account },
 	);
 	await fixture.registry.write.grantRole(
 		[PRODUCER_ROLE, fixture.producer2.account.address],
-		{ account: fixture.admin.account },
+		{ account: fixture.usersAdmin.account },
 	);
 
 	await fixture.registry.write.mintLot([[500n], CID, REF], {
@@ -151,11 +161,11 @@ export async function deployTwoBatchLots() {
 
 	await fixture.registry.write.grantRole(
 		[PRODUCER_ROLE, fixture.producer1.account.address],
-		{ account: fixture.admin.account },
+		{ account: fixture.usersAdmin.account },
 	);
 	await fixture.registry.write.grantRole(
 		[PRODUCER_ROLE, fixture.producer2.account.address],
-		{ account: fixture.admin.account },
+		{ account: fixture.usersAdmin.account },
 	);
 
 	await fixture.registry.write.mintLot([[100n, 40n, 10n], CID, REF], {
@@ -174,12 +184,9 @@ export async function deployThreeProducers() {
 	const PRODUCER_ROLE = await fixture.registry.read.PRODUCER_ROLE();
 
 	for (const p of [fixture.producer1, fixture.producer2, fixture.producer3]) {
-		await fixture.registry.write.grantRole(
-			[PRODUCER_ROLE, p.account.address],
-			{
-				account: fixture.admin.account,
-			},
-		);
+		await fixture.registry.write.grantRole([PRODUCER_ROLE, p.account.address], {
+			account: fixture.usersAdmin.account,
+		});
 	}
 
 	return fixture;
@@ -208,6 +215,12 @@ export async function deploySubscriptions() {
 		entryPoint.address,
 	]);
 
+	const PLANS_ADMIN_ROLE = await subscriptions.read.PLANS_ADMIN_ROLE();
+	await fixture.registry.write.grantRole(
+		[PLANS_ADMIN_ROLE, fixture.plansAdmin.account.address],
+		{ account: fixture.admin.account },
+	);
+
 	return { ...fixture, entryPoint, subscriptions };
 }
 
@@ -218,7 +231,7 @@ export async function deployWithProducerPlan() {
 
 	await fixture.subscriptions.write.addPlan(
 		[PRODUCER_ROLE, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD],
-		{ account: fixture.admin.account },
+		{ account: fixture.plansAdmin.account },
 	);
 
 	return fixture;
@@ -231,7 +244,7 @@ export async function deployAccreditedSubscriber() {
 
 	await fixture.registry.write.grantRole(
 		[PRODUCER_ROLE, fixture.producer1.account.address],
-		{ account: fixture.admin.account },
+		{ account: fixture.usersAdmin.account },
 	);
 
 	return fixture;
@@ -301,10 +314,16 @@ export async function deployMockedPaymaster() {
 		entryPoint.address,
 	]);
 
+	const PLANS_ADMIN_ROLE = await paymaster.read.PLANS_ADMIN_ROLE();
+	await fixture.registry.write.grantRole(
+		[PLANS_ADMIN_ROLE, fixture.plansAdmin.account.address],
+		{ account: fixture.admin.account },
+	);
+
 	const PRODUCER_ROLE = await fixture.registry.read.PRODUCER_ROLE();
 	await paymaster.write.addPlan(
 		[PRODUCER_ROLE, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD],
-		{ account: fixture.admin.account },
+		{ account: fixture.plansAdmin.account },
 	);
 
 	// running the sponsorship is its own accreditation, held here by `admin`
@@ -332,7 +351,7 @@ export async function deployMockedSubscriber() {
 	for (const producer of [fixture.producer1, fixture.producer2]) {
 		await fixture.registry.write.grantRole(
 			[PRODUCER_ROLE, producer.account.address],
-			{ account: fixture.admin.account },
+			{ account: fixture.usersAdmin.account },
 		);
 	}
 	await fixture.paymaster.write.subscribe([0], {
@@ -350,11 +369,11 @@ export async function deployMockedSingleOpSubscriber() {
 
 	await fixture.paymaster.write.setPlan(
 		[0, PLAN_PRICE, 1, MONTHLY_PERIOD, true],
-		{ account: fixture.admin.account },
+		{ account: fixture.plansAdmin.account },
 	);
 	await fixture.registry.write.grantRole(
 		[PRODUCER_ROLE, fixture.producer1.account.address],
-		{ account: fixture.admin.account },
+		{ account: fixture.usersAdmin.account },
 	);
 	await fixture.paymaster.write.subscribe([0], {
 		account: fixture.producer1.account,
@@ -390,10 +409,16 @@ export async function deployRealPaymaster() {
 		entryPoint.address,
 	]);
 
+	const PLANS_ADMIN_ROLE = await paymaster.read.PLANS_ADMIN_ROLE();
+	await fixture.registry.write.grantRole(
+		[PLANS_ADMIN_ROLE, fixture.plansAdmin.account.address],
+		{ account: fixture.admin.account },
+	);
+
 	const PRODUCER_ROLE = await fixture.registry.read.PRODUCER_ROLE();
 	await paymaster.write.addPlan(
 		[PRODUCER_ROLE, PLAN_PRICE, MONTHLY_QUOTA, MONTHLY_PERIOD],
-		{ account: fixture.admin.account },
+		{ account: fixture.plansAdmin.account },
 	);
 
 	// running the sponsorship is its own accreditation, held here by `admin`
@@ -430,7 +455,7 @@ export async function deployUnsubscribedAccount() {
 
 	const PRODUCER_ROLE = await fixture.registry.read.PRODUCER_ROLE();
 	await fixture.registry.write.grantRole([PRODUCER_ROLE, account.address], {
-		account: fixture.admin.account,
+		account: fixture.usersAdmin.account,
 	});
 	await fixture.producer1.sendTransaction({
 		to: account.address,
