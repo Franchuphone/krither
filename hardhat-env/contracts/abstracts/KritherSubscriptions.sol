@@ -16,6 +16,7 @@ abstract contract KritherSubscriptions is
 {
     bytes32 public constant DEFAULT_ADMIN_ROLE = Constants.DEFAULT_ADMIN_ROLE;
     bytes32 public constant PAUSER_ROLE = Constants.PAUSER_ROLE;
+    bytes32 public constant PLANS_ADMIN_ROLE = Constants.PLANS_ADMIN_ROLE;
 
     mapping(address => Subscription) internal _subscriptions;
 
@@ -91,7 +92,7 @@ abstract contract KritherSubscriptions is
     )
         external
         whenNotPaused
-        onlyRegistryRole(DEFAULT_ADMIN_ROLE)
+        onlyRegistryRole(PLANS_ADMIN_ROLE)
         checkNonZero(quota)
         checkNonZero(period)
         returns (uint8 planId)
@@ -111,7 +112,7 @@ abstract contract KritherSubscriptions is
     )
         external
         whenNotPaused
-        onlyRegistryRole(DEFAULT_ADMIN_ROLE)
+        onlyRegistryRole(PLANS_ADMIN_ROLE)
         checkNonZero(quota)
         checkNonZero(period)
         checkPlanExists(planId)

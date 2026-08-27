@@ -27,11 +27,18 @@ abstract contract KritherRoles is
     bytes32 public constant RESELLER_ROLE = Constants.RESELLER_ROLE;
     bytes32 public constant CONSUMER_ROLE = Constants.CONSUMER_ROLE;
     bytes32 public constant PAUSER_ROLE = Constants.PAUSER_ROLE;
+    bytes32 public constant USERS_ADMIN_ROLE = Constants.USERS_ADMIN_ROLE;
 
     uint256 private _nextProducerId;
 
-    mapping(address => uint256) public producerByAddr;
-    mapping(uint256 => address) public producerById;
+    mapping(address account => uint256 idProducer) public producerByAddr;
+    mapping(uint256 idProducer => address account) public producerById;
+
+    constructor() {
+        _setRoleAdmin(PRODUCER_ROLE, USERS_ADMIN_ROLE);
+        _setRoleAdmin(RESELLER_ROLE, USERS_ADMIN_ROLE);
+        _setRoleAdmin(CONSUMER_ROLE, USERS_ADMIN_ROLE);
+    }
 
     function _grantRole(
         bytes32 role,

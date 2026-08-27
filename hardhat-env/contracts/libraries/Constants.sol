@@ -18,6 +18,7 @@ library Constants {
     bytes32 internal constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 internal constant PAYMASTER_ROLE = keccak256("PAYMASTER_ROLE");
     bytes32 internal constant USERS_ADMIN_ROLE = keccak256("USERS_ADMIN_ROLE");
+    bytes32 internal constant PLANS_ADMIN_ROLE = keccak256("PLANS_ADMIN_ROLE");
 
     // TOKEN IDS
 
