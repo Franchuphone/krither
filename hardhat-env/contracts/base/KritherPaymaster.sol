@@ -28,9 +28,9 @@ contract KritherPaymaster is
 
     uint256 public maxCostPerOp;
 
-    mapping(address => bool) public sponsoredTargets;
+    mapping(address target => bool allowed) public sponsoredTargets;
 
-    mapping(address => uint256) public freeOps;
+    mapping(address account => uint256 used) public freeOps;
 
     constructor(
         address registry_,
