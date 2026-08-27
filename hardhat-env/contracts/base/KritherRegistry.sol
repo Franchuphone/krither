@@ -33,9 +33,10 @@ contract KritherRegistry is
 
     uint128 private _nextIdLot;
 
-    mapping(uint256 => Lot) public lots;
-    mapping(address => mapping(uint256 => uint256)) public lotIds;
-    mapping(uint256 => uint256) public lifecycleChanges;
+    mapping(uint256 idLot => Lot) public lots;
+    mapping(uint256 idProducer => mapping(uint256 ref => uint256 idLot))
+        public lotIds;
+    mapping(uint256 idItem => uint256 count) public lifecycleChanges;
 
     constructor(address admin) ERC1155("") {
         require(admin != address(0), InputAddressZero());
@@ -141,15 +142,17 @@ contract KritherRegistry is
         checkEmptyString(cid)
         returns (uint256 idLot)
     {
-        require(lotIds[msg.sender][ref] == 0, LotAlreadyExists());
+        uint256 idProducer = producerByAddr[msg.sender];
+        require(lotIds[idProducer][ref] == 0, LotAlreadyExists());
 
         idLot = ++_nextIdLot;
         lots[idLot] = Lot(msg.sender, uint96(quantities.length), cid);
-        lotIds[msg.sender][ref] = idLot;
+        lotIds[idProducer][ref] = idLot;
 
         _mintBatch(msg.sender, _packIds(idLot, quantities), quantities, "");
         emit LotCreated(
             idLot,
+            idProducer,
             msg.sender,
             ref,
             cid,

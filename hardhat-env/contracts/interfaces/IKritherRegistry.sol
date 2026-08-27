@@ -10,8 +10,9 @@ interface IKritherRegistry {
 
     event LotCreated(
         uint256 indexed idLot,
-        address indexed producer,
-        uint256 indexed ref,
+        uint256 indexed idProducer,
+        address indexed addrProducer,
+        uint256 ref,
         string cid,
         uint256[] quantities,
         uint256 createdAt
@@ -44,7 +45,7 @@ interface IKritherRegistry {
 
     /// @notice Krither lot id a producer's own reference points to.
     function lotIds(
-        address producer,
+        uint256 idProducer,
         uint256 ref
     ) external view returns (uint256 idLot);
 
