@@ -7,7 +7,7 @@ import DossierDetails from "@/components/cards/DossierDetails";
 import CardHeading from "@/components/cards/CardHeading";
 import { Card, CardContent } from "@/components/ui/card";
 import { legalFormLabel } from "@/lib/producerRegistration";
-import ProducerQrCode from "./ProducerQrCode";
+import LotLabel from "./QrLabel";
 
 const ProducerProfile = () => {
 	const { data: dossier, isPending } = useQuery({
@@ -46,7 +46,9 @@ const ProducerProfile = () => {
 
 			<CardContent className="grid gap-3 sm:grid-cols-2">
 				<DossierDetails dossier={dossier} />
-				<ProducerQrCode />
+				<div className="sm:col-span-2">
+					<LotLabel />
+				</div>
 			</CardContent>
 		</Card>
 	);
