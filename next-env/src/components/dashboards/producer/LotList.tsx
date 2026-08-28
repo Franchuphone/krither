@@ -20,8 +20,7 @@ import {
 import { MAX_LOT_DOCUMENTS } from "@/lib/lot";
 import { registryABI, registryAddress } from "@/lib/registry";
 import LotDocuments from "./LotDocuments";
-import LotQrCode from "./LotQrCode";
-
+import LotLabel from "./QrLabel";
 
 type Lot = Awaited<ReturnType<typeof listProducerLots>>[number];
 
@@ -103,10 +102,7 @@ const LotRow = ({
 					Réf. {lot.ref}
 				</span>
 
-				<Badge
-					variant={minted ? "success" : "muted"}
-					className="ml-auto"
-				>
+				<Badge variant={minted ? "success" : "muted"} className="ml-auto">
 					{minted ? "Ancré" : "Brouillon"}
 				</Badge>
 			</CollapsibleTrigger>
@@ -114,9 +110,7 @@ const LotRow = ({
 			<CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0">
 				<div className="flex flex-col gap-3 border-t border-border px-3 py-3">
 					{lot.description && (
-						<p className="text-sm text-muted-foreground">
-							{lot.description}
-						</p>
+						<p className="text-sm text-muted-foreground">{lot.description}</p>
 					)}
 
 					<ul className="divide-y divide-border overflow-hidden rounded-md border border-border">
@@ -141,9 +135,7 @@ const LotRow = ({
 									<LotDocuments
 										lotId={lot.id}
 										itemId={item.id}
-										documents={
-											item.document ? [item.document] : []
-										}
+										documents={item.document ? [item.document] : []}
 										editable={!minted && !lot.cid}
 										label="Document : 1 seul autorisé"
 										max={1}
@@ -189,9 +181,7 @@ const LotRow = ({
 									Date
 								</span>
 								<span className="tabular-nums">
-									{new Date(
-										lot.producedAt,
-									).toLocaleDateString("fr-FR")}
+									{new Date(lot.producedAt).toLocaleDateString("fr-FR")}
 								</span>
 							</span>
 						)}
@@ -205,7 +195,15 @@ const LotRow = ({
 						)}
 					</div>
 
-					{minted && <LotQrCode lotId={lot.id} />}
+					{minted && (
+						<LotLabel
+							lotId={lot.id}
+							name={lot.name}
+							lotRef={lot.ref}
+							zone={lot.zone ?? ""}
+							producedAt={lot.producedAt ?? ""}
+						/>
+					)}
 
 					{!minted && (
 						<div className="flex justify-end">
@@ -235,9 +233,7 @@ const LotList = () => {
 
 	if (isPending) {
 		return (
-			<p className="text-sm text-muted-foreground">
-				Chargement des lots…
-			</p>
+			<p className="text-sm text-muted-foreground">Chargement des lots…</p>
 		);
 	}
 
