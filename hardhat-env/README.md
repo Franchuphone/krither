@@ -33,18 +33,21 @@ KritherRegistry              KritherPaymaster
    whitelists the registry + itself as sponsored targets in the constructor.
 
 ```bash
-pnpm hardhat ignition deploy ignition/modules/Krither.ts --network sepolia
+pnpm deploy:sepolia   # compile + ignition deploy + etherscan verify
+pnpm sync:abi         # ABI + address + deploy block out to next-env
 ```
 
 Everything below is a separate admin operation, deliberately left out of the
 module because none of its values are settled:
 
-4. Registry admin grants `PAYMASTER_ROLE` to whoever operates the sponsorship.
-5. That operator calls `setMaxCostPerOp(...)` (it is **0** at deploy, so the
+4. `DEFAULT_ADMIN_ROLE` grants `USERS_ADMIN_ROLE` to whoever accredits users,
+   `PLANS_ADMIN_ROLE` to whoever prices the plans, `PAYMASTER_ROLE` to whoever
+   operates the sponsorship, `PAUSER_ROLE` to whoever can stop everything.
+5. `PAYMASTER_ROLE` calls `setMaxCostPerOp(...)` (it is **0** at deploy, so the
    paymaster sponsors nothing until this is set), `addStake(delay)` with value,
    and funds the EntryPoint deposit.
-6. Registry admin calls `addPlan(PRODUCER_ROLE, price, quota, period)` to open
-   the producer plan as plan id `0`.
+6. `PLANS_ADMIN_ROLE` calls `addPlan(PRODUCER_ROLE, price, quota, period)` to
+   open the producer plan as plan id `0`.
 
 **Key architectural fact:** the paymaster holds no roles of its own. Every
 `onlyRegistryRole(X)` check is a live `IAccessControl(registry).hasRole(X, ...)`
@@ -66,9 +69,12 @@ sync.
 | `abstracts/Errors.sol`               | Shared input-guard modifiers.                                                       |
 | `libraries/Constants.sol`            | Every constant in the system. Nothing is redefined elsewhere.                       |
 | `libraries/LotId.sol`                | `pack` / `lot` / `index` bit-packing.                                               |
-| `interfaces/I*.sol`                  | Structs, events and external signatures. Read these first when generating types.    |
+| `interfaces/I*.sol`                  | Structs, events and external signatures.                                            |
 | `mocks/MockEntryPoint.sol`           | Test-only stand-in that calls the two hooks directly.                               |
 | `mocks/EntryPointHarness.sol`        | `TestEntryPoint` (real v0.8 EntryPoint) + `TestAccount` (SimpleAccount). Test-only. |
+| `ignition/modules/Krither.ts`        | Deployment module, the three contracts and nothing else.                            |
+| `scripts/sync-abi.ts`                | Reads the Ignition deployment, writes ABI + address + block to `next-env`.           |
+| `scripts/slither.sh`                 | Slither run, working around Hardhat 3 build-info.                                    |
 
 ---
 
@@ -86,28 +92,33 @@ index  = uint128(idItem)
 ```
 
 Lot ids start at `1` (`++_nextIdLot`), item indexes start at `0`. Exposed
-on-chain as pure functions so the frontend never has to reimplement it:
-`itemId(idLot, index)`, `lotOf(idItem)`, `indexOf(idItem)`.
+on-chain as pure functions: `itemId(idLot, index)`, `lotOf(idItem)`,
+`indexOf(idItem)`.
 
 ### 3.2 `Lot`
 
 ```solidity
 struct Lot { address producer; uint96 itemCount; string cid; }
-mapping(uint256 => Lot) public lots;                 // idLot  => Lot
-mapping(uint256 => uint256) public lifecycleChanges; // idItem => count
+
+mapping(uint256 idLot => Lot) public lots;
+mapping(uint256 idProducer => mapping(uint256 ref => uint256 idLot)) public lotIds;
+mapping(uint256 idItem => uint256 count) public lifecycleChanges;
 ```
 
 `cid` is the metadata **directory** CID, frozen at mint and never updatable.
 `uri(idItem)` returns `<cid>/<index>.json`, reverting `LotNotFound` for an
 unknown lot and `ItemNotFound` when `index >= itemCount`.
 
-`lot.producer` is the wallet that minted, kept immutable on purpose. To resolve
-the **current** wallet after a reassignment, go through the indirection:
+`lot.producer` is the wallet that minted, kept immutable on purpose. The
+**current** wallet after a reassignment resolves through the indirection:
 
 ```
 id      = producerByAddr[lot.producer]
 current = producerById[id]
 ```
+
+`lotIds` keys on the producer **id**, not the address, so a producer's refs
+survive a wallet rotation.
 
 ### 3.3 `Plan` and `Subscription`
 
@@ -135,23 +146,26 @@ never pool.
 
 All defined in `Constants.sol`, all held **in the registry**.
 
-| Role                          | Granted by | Powers                                                                                                                                                        |
-| ----------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DEFAULT_ADMIN_ROLE` (`0x00`) | itself     | Grants/revokes every role. Registry: `addLocator`, `reassignProducer`. Paymaster: `addPlan`, `setPlan`, all withdrawals (revenue, deposit, stake).            |
-| `PRODUCER_ROLE`               | admin      | `mintLot`. Buying a producer plan. Gets a stable producer id on first grant.                                                                                  |
-| `RESELLER_ROLE`               | admin      | Declared, no contract logic yet. Reserved for a reseller plan.                                                                                                |
-| `CONSUMER_ROLE`               | admin      | Declared, no contract logic yet. Consumer side is read-only in pilot 1.                                                                                       |
-| `PAUSER_ROLE`                 | admin      | `pause`/`unpause` on **both** contracts (each has its own flag).                                                                                              |
-| `PAYMASTER_ROLE`              | admin      | Day-to-day sponsorship ops: `setMaxCostPerOp`, `setSponsoredTarget`, `resetFreeOps`, `depositToEntryPoint`, `addStake`, `unlockStake`. Cannot move money out. |
-| `USERS_ADMIN_ROLE`            | -          | Defined in `Constants.sol` but **not referenced by any contract**. Dead constant today.                                                                       |
+| Role                          | Admin of the role    | Powers                                                                                                                                                        |
+| ----------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEFAULT_ADMIN_ROLE` (`0x00`) | itself               | Grants/revokes `USERS_ADMIN_ROLE`, `PLANS_ADMIN_ROLE`, `PAUSER_ROLE`, `PAYMASTER_ROLE`. Registry: `addLocator`, `reassignProducer`. Paymaster: all withdrawals (revenue, deposit, stake). |
+| `USERS_ADMIN_ROLE`            | `DEFAULT_ADMIN_ROLE` | Accreditation: it is the role admin of `PRODUCER_ROLE`, `RESELLER_ROLE` and `CONSUMER_ROLE`, so it alone grants and revokes them.                             |
+| `PLANS_ADMIN_ROLE`            | `DEFAULT_ADMIN_ROLE` | Paymaster `addPlan` / `setPlan`. Pricing only, no access to the money.                                                                                        |
+| `PRODUCER_ROLE`               | `USERS_ADMIN_ROLE`   | `mintLot`. Buying a producer plan. Gets a stable producer id on first grant.                                                                                  |
+| `RESELLER_ROLE`               | `USERS_ADMIN_ROLE`   | Declared, no contract logic. Grantable, and usable as a plan's `role`.                                                                                        |
+| `CONSUMER_ROLE`               | `USERS_ADMIN_ROLE`   | Declared, no contract logic. Grantable, and usable as a plan's `role`.                                                                                        |
+| `PAUSER_ROLE`                 | `DEFAULT_ADMIN_ROLE` | `pause`/`unpause` on **both** contracts (each has its own flag).                                                                                              |
+| `PAYMASTER_ROLE`              | `DEFAULT_ADMIN_ROLE` | Day-to-day sponsorship ops: `setMaxCostPerOp`, `setSponsoredTarget`, `resetFreeOps`, `depositToEntryPoint`, `addStake`, `unlockStake`. Cannot move money out. |
 
-Deliberate split: `PAYMASTER_ROLE` runs the sponsorship, `DEFAULT_ADMIN_ROLE`
-is the only role that can take funds out.
+Three deliberate splits: `USERS_ADMIN_ROLE` accredits without owning the
+contract, `PLANS_ADMIN_ROLE` prices without touching the treasury, and
+`PAYMASTER_ROLE` runs the sponsorship while `DEFAULT_ADMIN_ROLE` stays the only
+role that can take funds out.
 
 There is **no bespoke accreditation function** - accreditation is plain
 `grantRole(PRODUCER_ROLE, account)` / `revokeRole(...)` from OpenZeppelin
-`AccessControlEnumerable`. The enumerable extension means the frontend can list
-holders with `getRoleMemberCount(role)` + `getRoleMember(role, i)`.
+`AccessControlEnumerable`. The enumerable extension makes holders listable with
+`getRoleMemberCount(role)` + `getRoleMember(role, i)`.
 
 **Accounts, not signers.** Roles are keyed on the ERC-4337 smart-account
 address. The producer's EOA signing key is never the accredited address.
@@ -164,7 +178,7 @@ address. The producer's EOA signing key is never the accredited address.
 
 | Function                                                           | Access                 | Guards                                                                          | Emits                                                              |
 | ------------------------------------------------------------------ | ---------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `mintLot(uint256[] quantities, string cid, uint256 ref) -> uint256 idLot` | `PRODUCER_ROLE`  | not paused; `quantities.length > 0`; every `quantities[i] > 0`; `cid` non-empty; `ref` unused by the caller | `LotCreated(idLot, producer, ref, cid, quantities, createdAt)`     |
+| `mintLot(uint256[] quantities, string cid, uint256 ref) -> uint256 idLot` | `PRODUCER_ROLE`  | not paused; `quantities.length > 0`; every `quantities[i] > 0`; `cid` non-empty; `ref` unused by the caller | `LotCreated(idLot, idProducer, addrProducer, ref, cid, quantities, createdAt)` |
 | `addLifecycleChange(uint256 idItem, string cid)`                   | any holder of `idItem` | not paused; `cid` non-empty; `balanceOf(sender, idItem) != 0`                   | `LifecycleChanged(idItem, idLot, quantity, owner, cid, changedAt)` |
 | `addLocator(uint256 idLot, string service, string pointer)`        | `DEFAULT_ADMIN_ROLE`   | not paused; lot exists; both strings non-empty                                  | `LocatorAdded(idLot, keccak(service), service, pointer, addedAt)`  |
 | `reassignProducer(address old, address new)`                       | `DEFAULT_ADMIN_ROLE`   | not paused; `new != 0`; `old != new`; `old` is producer; `new` is not           | `ProducerReassigned(old, new, changedAt)`                          |
@@ -178,24 +192,24 @@ producer holds every unit until they transfer.
 
 `ref` is the producer's **own** identifier for the lot, their internal batch
 number rather than a Krither one. The lot id stays the sequential counter; the
-ref is recorded in `lotIds[producer][ref]`, which resolves it back to that id,
-and is emitted indexed on `LotCreated`. It must be unused by that caller, so a
-producer cannot overwrite the pointer to an earlier lot: reusing one reverts
+ref is recorded in `lotIds[idProducer][ref]`, which resolves it back to that id,
+and is emitted on `LotCreated`. It must be unused by that producer, so an
+earlier lot's pointer cannot be overwritten: reusing a ref reverts
 `LotAlreadyExists`. Two producers may hold the same ref without clashing.
 
-The mapping keys on the producer's **address**, not the producer id, so it does
-not follow a wallet rotation: after `reassignProducer`, refs written by the old
-address stay under it and the new address starts empty.
+Because the mapping keys on the producer id, refs follow a wallet rotation: a
+reassigned producer keeps the refs written by the old address.
 
 `addLocator` writes **no storage** - it is an event-only anchor for an
-alternative storage backend (Arweave, etc.). To read locators the frontend must
-scan `LocatorAdded` logs.
+alternative storage backend (Arweave, etc.). Locators are read from
+`LocatorAdded` logs.
 
 ### Reads
 
 | Function                                                            | Returns                                                          |
 | ------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | `lots(idLot)`                                                       | `(producer, itemCount, cid)` - `producer == 0` means no such lot |
+| `lotIds(idProducer, ref)`                                           | `idLot` the producer filed under that ref, `0` if none           |
 | `lifecycleChanges(idItem)`                                          | number of steps recorded                                         |
 | `itemsOf(idLot)`                                                    | `uint256[]` of every packed item id (reverts `LotNotFound`)      |
 | `uri(idItem)`                                                       | `<cid>/<index>.json`                                             |
@@ -203,9 +217,9 @@ scan `LocatorAdded` logs.
 | `balanceOf` / `balanceOfBatch`                                      | ERC-1155                                                         |
 | `totalSupply(id)` / `exists(id)`                                    | ERC-1155 Supply                                                  |
 | `producerByAddr(addr)` / `producerById(id)`                         | producer identity indirection                                    |
-| `hasRole` / `getRoleMemberCount` / `getRoleMember`                  | AccessControlEnumerable                                          |
+| `hasRole` / `getRoleAdmin` / `getRoleMemberCount` / `getRoleMember` | AccessControlEnumerable                                          |
 | `paused()`                                                          | circuit-breaker state                                            |
-| `PRODUCER_ROLE` / `RESELLER_ROLE` / `CONSUMER_ROLE` / `PAUSER_ROLE` | role hashes                                                      |
+| `PRODUCER_ROLE` / `RESELLER_ROLE` / `CONSUMER_ROLE` / `USERS_ADMIN_ROLE` / `PAUSER_ROLE` | role hashes                             |
 
 ---
 
@@ -217,8 +231,8 @@ Inherits everything in `KritherSubscriptions`.
 
 | Function                                                                           | Access                                                                             | Guards                                                            | Emits                                                |
 | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------- |
-| `addPlan(bytes32 role, uint96 price, uint32 quota, uint32 period) -> uint8 planId` | registry `DEFAULT_ADMIN_ROLE`                                                      | not paused; `quota > 0`; `period > 0`; fewer than 255 plans       | `PlanSet(planId, role, price, quota, period, true)`  |
-| `setPlan(uint8 planId, uint96 price, uint32 quota, uint32 period, bool enabled)`   | registry `DEFAULT_ADMIN_ROLE`                                                      | not paused; plan exists; `quota > 0`; `period > 0`                | `PlanSet(...)` - the plan's `role` cannot be changed |
+| `addPlan(bytes32 role, uint96 price, uint32 quota, uint32 period) -> uint8 planId` | registry `PLANS_ADMIN_ROLE`                                                        | not paused; `quota > 0`; `period > 0`; fewer than 255 plans       | `PlanSet(planId, role, price, quota, period, true)`  |
+| `setPlan(uint8 planId, uint96 price, uint32 quota, uint32 period, bool enabled)`   | registry `PLANS_ADMIN_ROLE`                                                        | not paused; plan exists; `quota > 0`; `period > 0`                | `PlanSet(...)` - the plan's `role` cannot be changed |
 | `subscribe(uint8 planId) payable`                                                  | holder of that plan's `role` in the registry                                       | not paused; plan exists and enabled; `msg.value == price` exactly | `Subscribed(account, planId, expiresAt, quota)`      |
 | `planTerms(planId)`                                                                | view                                                                               |                                                                   |                                                      |
 | `planCount()`                                                                      | view                                                                               |                                                                   |                                                      |
@@ -230,7 +244,7 @@ Inherits everything in `KritherSubscriptions`.
 - first purchase: `periodEnd = now + period`, `expiresAt = now + period`,
   `used = 0`
 - renewal while still active: `expiresAt += period`, `periodEnd` and `used` are
-  **kept** (you do not get a fresh quota by renewing early)
+  **kept** (an early renewal does not hand back a fresh quota)
 - renewal after lapse: everything resets to `now + period`
 - `msg.value` must equal the price **exactly** - `PriceMismatch` otherwise, and
   there is no refund path
@@ -266,10 +280,7 @@ All of these except the reads are `whenNotPaused`.
 
 ---
 
-## 7. How sponsorship actually decides
-
-This is the part the frontend must model correctly, because a wrongly shaped
-call is rejected at validation and the user op never lands.
+## 7. How sponsorship decides
 
 ### 7.1 The call must be one of two shapes
 
@@ -301,7 +312,7 @@ two gas limits):
 | empty or other  | subscription and quota |
 
 Naming the wrong lane costs nothing but a rejected operation: each lane carries
-the window it is true in, so a request that lies about its state is simply never
+the window it is true in, so a request that lies about its state is never
 included.
 
 ```
@@ -340,29 +351,27 @@ validatePaymasterUserOp
 - **normal, window rolled over** -> `used = 1`, new
   `periodEnd = min(now + period, expiresAt)`, same event
 
-### 7.3 Consequences the UI has to respect
+### 7.3 Consequences of the two lanes
 
 - An accredited account with no plan gets **at most 3 free sponsored attempts**,
-  and they can only ever be `subscribe` calls. There is no gasless minting
-  before a subscription exists.
+  and they can only ever be `subscribe` calls. Nothing else is sponsored before
+  a subscription exists.
 - Free ops are gated on accreditation, so an unaccredited address gets nothing.
 - A successful purchase **refunds all three** free ops.
 - **An early renewal consumes quota, a renewal after lapse consumes a free op.**
-  Which one happens is the lane byte the frontend sets: asking for the free lane
-  while the subscription still runs produces an op the bundler holds until
-  `expiresAt` (`AA32 paymaster expired or not due`), never a quota charge.
+  Asking for the free lane while the subscription still runs produces an op the
+  bundler holds until `expiresAt` (`AA32 paymaster expired or not due`), never a
+  quota charge.
 - `executeBatch` is **never** treated as onboarding. A first-ever subscribe must
   be sent as a single `execute`, with `paymasterData = 0x01`.
 - The smart account must already hold the plan price in native currency before
-  it can subscribe. Gas is sponsored; the subscription fee is not. Funding the
-  account is an off-4337 step (fiat on-ramp, transfer, or a top-up flow the
-  frontend has to provide).
-- `validUntil` is set to `expiresAt`, so a bundler will reject an op whose
+  it can subscribe. Gas is sponsored; the subscription fee is not.
+- `validUntil` is set to `expiresAt`, so a bundler rejects an op whose
   subscription expires before inclusion.
-- A refusal is no longer always a revert. An expired subscription and a spent
-  quota come back as a window the bundler reports as `AA32 paymaster expired or
-  not due`, so the UI must pre-check `remainingQuota(account)` and
-  `subscriptions(account)` to say anything useful about why.
+- A refusal is not always a revert. An expired subscription and a spent quota
+  come back as a window the bundler reports as `AA32 paymaster expired or not
+  due`; `remainingQuota(account)` and `subscriptions(account)` are what say
+  which of the two it was.
 
 ---
 
@@ -372,8 +381,7 @@ Two independent circuit breakers, both driven by registry `PAUSER_ROLE`.
 
 **Registry paused:** `mintLot`, `addLifecycleChange`, `addLocator`,
 `reassignProducer`, `renounceRole`, `setApprovalForAll` and **every ERC-1155
-transfer** revert. Reads are unaffected, so public provenance pages keep
-working.
+transfer** revert. Reads are unaffected.
 
 `grantRole` and `revokeRole` are the exception, and stay open on purpose: the
 paymaster reads accreditation live from the registry, so revoking a role is how
@@ -391,179 +399,33 @@ anyone paying their own gas.
 
 ---
 
-## 9. Events to index
+## 9. Events
 
-| Event                                                              | Contract  | Use in the frontend                                                               |
-| ------------------------------------------------------------------ | --------- | --------------------------------------------------------------------------------- |
-| `LotCreated(idLot, producer, ref, cid, quantities, createdAt)`     | Registry  | The producer's lot list; the public catalogue. Indexed on `idLot`, `producer` and `ref`. |
-| `LifecycleChanged(idItem, idLot, quantity, owner, cid, changedAt)` | Registry  | The provenance timeline of an item. Indexed on `idItem`, `idLot`, `owner`.        |
-| `LocatorAdded(idLot, serviceKey, service, pointer, addedAt)`       | Registry  | Alternative storage pointers - **event-only, no storage to read**.                |
-| `ProducerReassigned(old, new, changedAt)`                          | Registry  | Wallet-rotation history.                                                          |
-| `RoleGranted` / `RoleRevoked`                                      | Registry  | Accreditation status changes.                                                     |
-| `TransferSingle` / `TransferBatch`                                 | Registry  | Custody chain for an item.                                                        |
-| `PlanSet(planId, role, price, quota, period, enabled)`             | Paymaster | Pricing page.                                                                     |
-| `Subscribed(account, planId, expiresAt, quota)`                    | Paymaster | Billing history.                                                                  |
-| `OperationSponsored(account, cost, remaining)`                     | Paymaster | Usage meter, gas-spent dashboard.                                                 |
-| `OnboardingSponsored` / `OnboardingFailed`                         | Paymaster | Onboarding funnel + free-ops counter.                                             |
-| `FreeOpsReset(account)`                                            | Paymaster | Support actions.                                                                  |
-| `MaxCostPerOpSet` / `SponsoredTargetSet`                          | Paymaster | Admin audit trail.                                                                |
-| `FundsWithdrawn(from, to, amount)`                                | Paymaster | Every movement of money out, `from` naming the pot: deposit, stake or revenue.    |
-| `FundsDeposited(to, from, amountSent, amountHeld)`                | Paymaster | Gas budget and stake funded, split between what an operator sent and what came out of revenue already held. Revenue in is `Subscribed`. |
+| Event                                                                       | Contract  | Carries                                                                    |
+| --------------------------------------------------------------------------- | --------- | -------------------------------------------------------------------------- |
+| `LotCreated(idLot, idProducer, addrProducer, ref, cid, quantities, createdAt)` | Registry  | A mint. Indexed on `idLot`, `idProducer` and `addrProducer`.              |
+| `LifecycleChanged(idItem, idLot, quantity, owner, cid, changedAt)`          | Registry  | One provenance step. Indexed on `idItem`, `idLot`, `owner`.                |
+| `LocatorAdded(idLot, serviceKey, service, pointer, addedAt)`                | Registry  | Alternative storage pointer - **event-only, no storage to read**.          |
+| `ProducerReassigned(old, new, changedAt)`                                   | Registry  | Wallet rotation.                                                           |
+| `RoleGranted` / `RoleRevoked`                                               | Registry  | Accreditation changes.                                                     |
+| `TransferSingle` / `TransferBatch`                                          | Registry  | Custody chain for an item.                                                 |
+| `PlanSet(planId, role, price, quota, period, enabled)`                      | Paymaster | Plan creation and repricing.                                               |
+| `Subscribed(account, planId, expiresAt, quota)`                             | Paymaster | A purchase or renewal, and the revenue in.                                 |
+| `OperationSponsored(account, cost, remaining)`                              | Paymaster | One quota-charged sponsored op.                                            |
+| `OnboardingSponsored(account, actualGasCost)` / `OnboardingFailed(account, cost, remaining)` | Paymaster | Free-lane settlement.                                      |
+| `FreeOpsReset(account)`                                                     | Paymaster | An operator handing free ops back.                                         |
+| `MaxCostPerOpSet` / `SponsoredTargetSet`                                    | Paymaster | Sponsorship terms changed.                                                 |
+| `FundsWithdrawn(from, to, amount)`                                          | Paymaster | Every movement of money out, `from` naming the pot: deposit, stake or revenue. |
+| `FundsDeposited(to, from, amountSent, amountHeld)`                          | Paymaster | Gas budget and stake funded, split between what an operator sent and what came out of revenue already held. |
 
-Bound every `getLogs` with a `NEXT_PUBLIC_*_DEPLOYED_BLOCK` env var. Never scan
-from block 0.
-
----
-
-## 10. Producer journey, end to end
-
-### Beat 1 - Landing (no wallet)
-
-`/` is public. Nothing on-chain.
-
-### Beat 2 - Account creation
-
-The producer ends up controlling an **ERC-4337 smart account**, not an EOA. The
-account address is what gets accredited and what holds the tokens.
-
-The account is built by `KritherAccountFactory`, the reference
-`SimpleAccountFactory` v0.8. Its `createAccount` is callable only by the
-EntryPoint's `SenderCreator`, so accounts are **counterfactual**: the address is
-read off-chain with `getAddress(owner, salt)` and the account itself is deployed
-by the `initCode` of its first user operation. An address can therefore be
-accredited and funded before any code exists at it.
-
-_Still open: no bundler endpoint is chosen. Tests construct `SimpleAccount`
-directly rather than through the factory._
-
-### Beat 3 - Accreditation request
-
-Off-chain: the producer submits identity/certification evidence. On-chain, an
-admin calls `registry.grantRole(PRODUCER_ROLE, smartAccount)`. That grant also
-mints the producer's stable id.
-
-UI states to render: not accredited / pending review / accredited (read
-`hasRole(PRODUCER_ROLE, account)` and watch `RoleGranted`).
-
-### Beat 4 - Subscribing
-
-Precondition: the smart account holds at least `plan.price` in native currency.
-
-```ts
-// exact shape the onboarding lane recognises
-account.execute(
-	paymasterAddress,
-	planPrice, // value carried into subscribe
-	encodeFunctionData({ abi, functionName: "subscribe", args: [planId] }),
-);
-```
-
-Sent as a user op with `paymasterAndData` pointing at the paymaster **and
-`paymasterData` set to `0x01`**, the byte that asks for the free lane. Without
-it the op is read as an ordinary quota-charged call and, on an account holding
-no subscription, refused with `SubscriptionExpired`. Gas is sponsored out of the
-free-ops budget. On success: `Subscribed` +
-`OnboardingSponsored`, free ops reset to 3.
-
-Failure to render honestly: `OnboardingFailed` tells the user how many free
-attempts remain. After 3 wasted attempts the account must either pay its own gas
-or ask an operator for `resetFreeOps`.
-
-### Beat 5 - Minting a lot
-
-The producer describes the batch: N distinct items, a quantity for each, and
-metadata. The frontend pins a **directory** to IPFS containing `0.json`,
-`1.json`, ... one per item, and passes the directory CID.
-
-```ts
-account.execute(
-	registryAddress,
-	0n,
-	encodeFunctionData({
-		abi,
-		functionName: "mintLot",
-		args: [quantities, cid, ref],
-	}),
-);
-```
-
-Consumes one quota unit. `LotCreated` carries the new `idLot`; item ids are
-`itemId(idLot, i)` for `i` in `0..quantities.length-1`. `ref` is the producer's
-own batch number, which they can look back up with `lotIds(producer, ref)` or by
-filtering `LotCreated` on it.
-
-**The CID is frozen forever.** The UI must make the review step before minting
-feel final, because there is no update path - a correction can only be recorded
-as a new lifecycle step.
-
-### Beat 6 - Lifecycle steps
-
-Any address holding units of `idItem` may append a step. For the producer that
-is everything they minted and have not transferred.
-
-```ts
-account.execute(
-	registryAddress,
-	0n,
-	encodeFunctionData({
-		abi,
-		functionName: "addLifecycleChange",
-		args: [idItem, stepCid],
-	}),
-);
-```
-
-One quota unit each. The timeline is reconstructed entirely from
-`LifecycleChanged` logs; `lifecycleChanges[idItem]` is just the count.
-
-### Beat 7 - Transfer / sale
-
-Standard ERC-1155 `safeTransferFrom` through the account. The receiver becomes a
-holder and can then append their own lifecycle steps - which is how the chain of
-custody keeps growing after the producer is out of the picture.
-
-### Beat 8 - Quota and renewal
-
-Dashboard reads: `remainingQuota(account)`, `subscriptions(account)` for
-`periodEnd` (quota refill) and `expiresAt` (hard end).
-
-Renewal is `subscribe(planId)` again with value. Note it is **not** onboarding,
-so it costs a quota unit - the UI should stop a producer from burning their last
-quota unit on something else near renewal time, or accept that renewal may need
-self-paid gas.
-
-### Beat 9 - Lost key
-
-Admin calls `reassignProducer(old, new)`. The producer id and the role move; the
-old address is stripped of `PRODUCER_ROLE`. **Tokens do not move** - the
-ERC-1155 balances stay on the old account, and `lots[].producer` still records
-the old address. The frontend must resolve display names through
-`producerById[producerByAddr[lot.producer]]`.
+`getLogs` calls should be bounded by the deploy block `sync:abi` writes out,
+never scanned from block 0.
 
 ---
 
-## 11. Consumer / public journey
+## 10. Errors
 
-Read-only in pilot 1, no wallet required, and none of it is gated by the
-`ConnectionGuard`.
-
-1. Scan a QR carrying `idItem` (or `idLot` + `index`).
-2. `lotOf(idItem)` -> `lots(idLot)` -> producer + itemCount + cid.
-3. `uri(idItem)` -> `<cid>/<index>.json`, fetched from IPFS.
-4. `LifecycleChanged` logs filtered on `idItem` -> the provenance timeline,
-   each entry resolving its own `cid`.
-5. `TransferSingle` logs -> custody chain.
-6. `LocatorAdded` logs on the lot -> mirror/alternative storage.
-
-Pilot 2 turns this side writable (consumers signing their own steps), which is
-why `CONSUMER_ROLE` already exists.
-
----
-
-## 12. Errors
-
-Every custom error, from `interfaces/IErrors.sol`. Map these to user-facing
-copy - a bare revert is useless in a dapp.
+Every custom error, from `interfaces/IErrors.sol`.
 
 | Error                  | Thrown when                                          |
 | ---------------------- | ---------------------------------------------------- |
@@ -574,6 +436,7 @@ copy - a bare revert is useless in a dapp.
 | `NotHolder`            | lifecycle step on an item the caller holds none of   |
 | `NotProducer`          | reassigning from an address that is not a producer   |
 | `LotNotFound`          | unknown lot id                                       |
+| `LotAlreadyExists`     | minting with a `ref` that producer already used      |
 | `ItemNotFound`         | index beyond the lot's `itemCount`                   |
 | `AlreadyProducer`      | reassigning onto an existing producer                |
 | `NotEntryPoint`        | a 4337 hook called by anyone else                    |
@@ -589,12 +452,13 @@ copy - a bare revert is useless in a dapp.
 | `CostTooHigh`          | `maxCost > maxCostPerOp`                             |
 | `WithdrawFailed`       | native transfer in `withdrawRevenue` failed          |
 
-Plus OpenZeppelin's own: `AccessControlUnauthorizedAccount`, `EnforcedPause`,
-`ExpectedPause`, and the ERC-1155 family.
+Plus OpenZeppelin's own: `AccessControlUnauthorizedAccount`,
+`AccessControlBadConfirmation`, `EnforcedPause`, `ExpectedPause`, and the
+ERC-1155 family.
 
 ---
 
-## 13. Constants worth mirroring in the frontend
+## 11. Constants
 
 | Constant                 | Value                                     |
 | ------------------------ | ----------------------------------------- |
@@ -605,53 +469,31 @@ Plus OpenZeppelin's own: `AccessControlUnauthorizedAccount`, `EnforcedPause`,
 | `VALID_AFTER_SHIFT`      | `208`                                     |
 | `PAYMASTER_DATA_OFFSET`  | `52`                                      |
 | `ONBOARDING_LANE`        | `0x01`                                    |
+| `SUBSCRIBE_SELECTOR`     | `subscribe(uint8)`                        |
 | `EXECUTE_SELECTOR`       | `execute(address,uint256,bytes)`          |
 | `EXECUTE_BATCH_SELECTOR` | `executeBatch((address,uint256,bytes)[])` |
 
-Everything lives in `libraries/Constants.sol` - there are no duplicated
-constants anywhere else in the codebase, and none should be added.
+Plus the eight role hashes. Everything lives in `libraries/Constants.sol` -
+there are no duplicated constants anywhere else in the codebase, and none
+should be added.
 
 ---
 
-## 14. Current gaps and open decisions
+## 12. Test suite
 
-Things a frontend implementer will hit and that are **not** resolved on-chain:
-
-- **No bundler chosen.** The factory is settled (`KritherAccountFactory`,
-  counterfactual accounts), but Sepolia still needs a bundler URL. Tests
-  construct `SimpleAccount` directly rather than through the factory.
-- **Frontend contract wiring does not exist yet.** `next-env/src/constants/` has
-  no ABI files; `.env.example` only has `NEXT_PUBLIC_REGISTRY_ADDRESS` /
-  `_DEPLOYED_BLOCK`. A paymaster address + deploy block env var is still needed.
-- **The deployment module deploys only.** `ignition/modules/Krither.ts` stops
-  after the three contracts. `PAYMASTER_ROLE`, `maxCostPerOp`, the stake, the
-  EntryPoint deposit and the plans stay manual admin operations, so a fresh
-  deployment sponsors nothing and sells nothing until they are run.
-- **`RESELLER_ROLE` / `CONSUMER_ROLE` have no contract logic** beyond being
-  grantable and sellable as a plan's `role`.
-- **`subscribe` requires exact payment with no refund**, so the UI must read
-  `planTerms` immediately before sending - a concurrent `setPlan` price change
-  will make an in-flight purchase revert.
-- **Funding the smart account** with the plan price is outside the sponsored
-  path and has no on-chain support.
-
----
-
-## 15. Test suite
-
-`hardhat-env/test/` - viem-based, ~4100 lines. Read `test/helpers/fixtures.ts`
-first: its fixture names are the clearest inventory of the intended states
-(`deployAccredited`, `deployWithBatchLot`, `deploySubscribed`,
+`test/` - viem-based. `test/helpers/fixtures.ts` is the inventory of the states
+under test (`deployAccredited`, `deployWithBatchLot`, `deploySubscribed`,
 `deployUnsubscribedAccount`, `deploySponsoredAccount`, ...).
-`test/helpers/userOp.ts` shows exactly how to build and sign a v0.8
-`PackedUserOperation` against this paymaster - **it is the reference the
-frontend's user-op builder should match**.
+`test/helpers/userOp.ts` builds and signs a v0.8 `PackedUserOperation` against
+this paymaster.
 
 Two EntryPoints are used: `MockEntryPoint` calls the hooks directly so tests can
 assert on custom errors, and `TestEntryPoint` is the canonical v0.8 EntryPoint
 for end-to-end runs.
 
 ```bash
-cd hardhat-env && pnpm hardhat compile
-cd hardhat-env && pnpm hardhat test
+pnpm hardhat compile
+pnpm hardhat test
+pnpm test:quiet       # stops at the first failing block
+./scripts/slither.sh
 ```
