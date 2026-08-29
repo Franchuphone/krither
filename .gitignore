@@ -54,6 +54,20 @@ ignition/deployments/
 .nyc_output/
 crytic-export/
 
+# === AI assistants / agent skills (root and every subfolder) ===
+**/.claude
+**/.agents
+**/agent/
+**/.cursor/
+**/.windsurf/
+**/.aider*
+**/CLAUDE.md
+**/AGENTS.md
+**/GEMINI.md
+**/SKILLS.md
+**/skills-lock.json
+**/copilot-instructions.md
+
 # === Certificates ===
 *.pem
 
