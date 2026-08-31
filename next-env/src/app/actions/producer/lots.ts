@@ -12,9 +12,11 @@ import prisma from "@/lib/prisma";
 import {
 	buildItemMetadata,
 	buildLotMetadata,
+	buildStepMetadata,
 	isLotValid,
 	MAX_ITEMS,
 	MAX_LOT_DOCUMENTS,
+	MAX_STEP_DESCRIPTION,
 	normalizeLot,
 	validateLot,
 	type LotErrors,
@@ -143,6 +145,7 @@ export async function listProducerLots() {
 		status: lot.status,
 		zone: lot.zone,
 		producedAt: lot.producedAt?.toISOString() ?? null,
+		quantity: lot.quantity,
 		cid: lot.cid,
 		idLot: lot.idLot?.toString() ?? null,
 		txHash: lot.txHash,
@@ -178,6 +181,7 @@ export async function createLotDraft(input: LotInput): Promise<DraftState> {
 				ref: BigInt(lot.ref),
 				zone: lot.zone,
 				producedAt: new Date(lot.producedAt),
+				quantity: Number(lot.quantity),
 				items: {
 					create: lot.items.map((item, index) => ({
 						index: index + 1,
@@ -299,27 +303,29 @@ export async function removeLotDocument(
 const lotLabel = (registryId: bigint, ref: bigint) =>
 	`Krither-p${registryId}-${ref}`;
 
-
 const REVERTS: Record<string, string> = {
 	LotAlreadyExists: "Ce lot est déjà ancré sur la blockchain",
 	EnforcedPause: "La plateforme est en pause",
+	NotHolder: "Vous ne détenez plus ce lot",
 	AccessControlUnauthorizedAccount: "Statut producteur requis",
+	ERC1155InsufficientBalance: "Quantité supérieure à ce que vous détenez",
+	ERC1155InvalidReceiver: "Ce wallet ne peut pas recevoir le lot",
 };
 
 /** The wallet strips revert data, so the reason is only readable from here. */
-function revertMessage(cause: unknown) {
+function revertMessage(cause: unknown, fallback = "Ancrage") {
 	const reverted =
 		cause instanceof BaseError ?
 			cause.walk((error) => error instanceof ContractFunctionRevertedError)
 		:	null;
 
 	if (!(reverted instanceof ContractFunctionRevertedError)) {
-		return "Ancrage impossible";
+		return `${fallback} impossible`;
 	}
 
 	const name = reverted.data?.errorName ?? "";
 
-	return REVERTS[name] ?? `Ancrage refusé par le contrat (${name})`;
+	return REVERTS[name] ?? `${fallback} refusé par le contrat (${name})`;
 }
 
 /**
@@ -372,10 +378,11 @@ export async function pinLotDraft(
 		return { error: REVERTS.LotAlreadyExists };
 	}
 
-	const units = lot.items.reduce((total, item) => total + item.quantity, 0);
-	const quantities = [units, ...lot.items.map((item) => item.quantity)].map(
-		String,
-	);
+	// Index 0 carries the lot's own declared quantity, then one entry per item.
+	const quantities = [
+		lot.quantity,
+		...lot.items.map((item) => item.quantity),
+	].map(String);
 
 	let cid = lot.cid;
 
@@ -385,10 +392,7 @@ export async function pinLotDraft(
 		try {
 			cid = await uploadDirectory(
 				[
-					jsonFile(
-						"0.json",
-						buildLotMetadata(lot, producer.companyName, units),
-					),
+					jsonFile("0.json", buildLotMetadata(lot, producer.companyName)),
 					...lot.items.map((item) =>
 						jsonFile(
 							`${item.index}.json`,
@@ -479,4 +483,175 @@ export async function recordLotMint(
 	});
 
 	return { ok: true };
+}
+
+export type LifecyclePlan = { idItem: string; cid: string };
+
+/** Pins before the tx: addLifecycleChange takes the cid, never the payload. */
+export async function pinLifecycleStep(
+	formData: FormData,
+): Promise<{ plan?: LifecyclePlan; error?: string }> {
+	const producer = await currentProducer();
+	if (!producer) return { error: "Accès refusé" };
+
+	const lotId = String(formData.get("lotId") ?? "");
+	const title = String(formData.get("title") ?? "")
+		.trim()
+		.replace(/\s+/g, " ");
+	const description = String(formData.get("description") ?? "").trim();
+	const file = formData.get("file");
+
+	if (title.length < 2 || title.length > 120)
+		return { error: "Titre : entre 2 et 120 caractères" };
+	if (description.length > MAX_STEP_DESCRIPTION)
+		return {
+			error: `Description : ${MAX_STEP_DESCRIPTION} caractères maximum`,
+		};
+
+	if (file instanceof File && file.size > 0) {
+		if (file.size > MAX_DOCUMENT_SIZE) return { error: "10 Mo maximum" };
+		if (!DOCUMENT_TYPES.includes(file.type))
+			return { error: "Format accepté : PDF, JPEG, PNG ou WEBP" };
+	}
+
+	const lot = await prisma.lot.findFirst({
+		where: { id: lotId, producerId: producer.id },
+		select: { ref: true, idLot: true, status: true },
+	});
+	if (!lot) return { error: "Lot introuvable" };
+	if (lot.status !== "MINTED" || !lot.idLot)
+		return { error: "Lot pas encore ancré" };
+	if (!producer.groupId) return { error: "Espace de stockage introuvable" };
+
+	let cid: string;
+
+	try {
+		// The step's own document is pinned first: its cid goes inside the json.
+		const documents =
+			file instanceof File && file.size > 0 ?
+				[
+					{
+						name: file.name,
+						cid: (await uploadDocument(file, file.name, producer.groupId)).cid,
+					},
+				]
+			:	[];
+
+		cid = (
+			await uploadDocument(
+				jsonFile(
+					"step.json",
+					buildStepMetadata(
+						lot,
+						producer.companyName,
+						title,
+						description,
+						documents,
+					),
+				),
+				`${lotLabel(producer.registryId, lot.ref)}-STEP`,
+				producer.groupId,
+			)
+		).cid;
+	} catch (cause) {
+		console.error(cause);
+		return { error: "Publication de l'étape impossible" };
+	}
+
+	const idItem = lot.idLot << BigInt(128);
+
+	try {
+		await serverClient.simulateContract({
+			address: registryAddress,
+			abi: registryABI,
+			functionName: "addLifecycleChange",
+			args: [idItem, cid],
+			account: producer.account,
+		});
+	} catch (cause) {
+		console.error(cause);
+		return { error: revertMessage(cause) };
+	}
+
+	return { plan: { idItem: idItem.toString(), cid } };
+}
+
+export type LotHolding = { idItem: string; balance: string };
+
+export type TransferPlan = {
+	idItem: string;
+	from: `0x${string}`;
+	to: `0x${string}`;
+	quantity: string;
+};
+
+/** The lot's own token, index 0, whose balance is the units still held. */
+async function lotToken(lotId: string, producerId: string) {
+	const lot = await prisma.lot.findFirst({
+		where: { id: lotId, producerId },
+		select: { idLot: true, status: true },
+	});
+
+	return lot?.status === "MINTED" && lot.idLot ?
+			lot.idLot << BigInt(128)
+		:	null;
+}
+
+export async function lotHolding(
+	lotId: string,
+): Promise<{ holding?: LotHolding; error?: string }> {
+	const producer = await currentProducer();
+	if (!producer) return { error: "Accès refusé" };
+
+	const idItem = await lotToken(lotId, producer.id);
+	if (!idItem) return { error: "Lot pas encore ancré" };
+
+	const balance = await serverClient.readContract({
+		address: registryAddress,
+		abi: registryABI,
+		functionName: "balanceOf",
+		args: [producer.account, idItem],
+	});
+
+	return {
+		holding: { idItem: idItem.toString(), balance: balance.toString() },
+	};
+}
+
+/** Simulated against the real sender: the wallet would only report "reverted". */
+export async function prepareLotTransfer(
+	lotId: string,
+	recipient: string,
+	quantity: string,
+): Promise<{ plan?: TransferPlan; error?: string }> {
+	const producer = await currentProducer();
+	if (!producer) return { error: "Accès refusé" };
+
+	if (!isAddress(recipient)) return { error: "Adresse de wallet invalide" };
+	const to = getAddress(recipient);
+	if (to === producer.account)
+		return { error: "Ce lot est déjà sur ce wallet" };
+
+	if (!/^\d+$/.test(quantity) || quantity === "0")
+		return { error: "Quantité : 1 unité minimum" };
+
+	const idItem = await lotToken(lotId, producer.id);
+	if (!idItem) return { error: "Lot pas encore ancré" };
+
+	try {
+		await serverClient.simulateContract({
+			address: registryAddress,
+			abi: registryABI,
+			functionName: "safeTransferFrom",
+			args: [producer.account, to, idItem, BigInt(quantity), "0x"],
+			account: producer.account,
+		});
+	} catch (cause) {
+		console.error(cause);
+		return { error: revertMessage(cause, "Transfert") };
+	}
+
+	return {
+		plan: { idItem: idItem.toString(), from: producer.account, to, quantity },
+	};
 }

@@ -1,7 +1,12 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AnchorIcon, ChevronDownIcon, Loader2Icon } from "lucide-react";
+import {
+	AnchorIcon,
+	ChevronDownIcon,
+	Loader2Icon,
+	SearchIcon,
+} from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { useTrackedWrite } from "@/hooks/useTrackedWrite";
@@ -17,6 +22,7 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
 import { MAX_LOT_DOCUMENTS } from "@/lib/lot";
 import { registryABI, registryAddress } from "@/lib/registry";
 import LotDocuments from "./LotDocuments";
@@ -80,7 +86,6 @@ const LotRow = ({
 	};
 
 	const minted = lot.status === "MINTED";
-	const units = lot.items.reduce((total, item) => total + item.quantity, 0);
 	const busy = pinning || writing;
 
 	return (
@@ -165,7 +170,7 @@ const LotRow = ({
 							<span className="rounded bg-muted px-1.5 py-0.5 font-medium tracking-kicker uppercase">
 								QTT
 							</span>
-							<span className="tabular-nums">{units} unités</span>
+							<span className="tabular-nums">{lot.quantity} unités</span>
 						</span>
 						{lot.zone && (
 							<span className="flex min-w-0 items-baseline gap-1.5">
@@ -226,6 +231,7 @@ const LotRow = ({
 
 const LotList = () => {
 	const [openId, setOpenId] = useState<string | null>(null);
+	const [search, setSearch] = useState("");
 	const { data: lots, isPending } = useQuery({
 		queryKey: ["producer-lots-list"],
 		queryFn: listProducerLots,
@@ -245,17 +251,38 @@ const LotList = () => {
 		);
 	}
 
+	const ref = search.replace(/\D/g, "");
+	const found = ref ? lots.filter((lot) => lot.ref.includes(ref)) : lots;
+
 	return (
-		<ul className="divide-y divide-border overflow-hidden rounded-md border border-border">
-			{lots.map((lot) => (
-				<LotRow
-					key={lot.id}
-					lot={lot}
-					open={openId === lot.id}
-					onOpenChange={(next) => setOpenId(next ? lot.id : null)}
+		<div className="flex flex-col gap-3">
+			<div className="relative">
+				<SearchIcon className="absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+				<Input
+					value={search}
+					onChange={(event) => setSearch(event.target.value)}
+					placeholder="Rechercher par numéro de lot"
+					aria-label="Rechercher par numéro de lot"
+					className="pl-7"
 				/>
-			))}
-		</ul>
+			</div>
+
+			{found.length === 0 ?
+				<p className="text-sm text-muted-foreground">
+					Aucun lot ne porte ce numéro.
+				</p>
+			:	<ul className="divide-y divide-border overflow-hidden rounded-md border border-border">
+					{found.map((lot) => (
+						<LotRow
+							key={lot.id}
+							lot={lot}
+							open={openId === lot.id}
+							onOpenChange={(next) => setOpenId(next ? lot.id : null)}
+						/>
+					))}
+				</ul>
+			}
+		</div>
 	);
 };
 

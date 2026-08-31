@@ -1,22 +1,28 @@
 "use client";
 
 import {
+	HistoryIcon,
 	PackagePlusIcon,
 	PackageSearchIcon,
+	SendIcon,
 	UserRoundIcon,
 } from "lucide-react";
 import { useState } from "react";
 import SessionGate from "@/components/connection/SessionGate";
 import PillNav, { type PillNavItem } from "@/components/nav/PillNav";
 import LotDraftForm from "./LotDraftForm";
+import LotLifecycle from "./LotLifecycle";
 import LotList from "./LotList";
 import LotSummary from "./LotSummary";
+import LotTransfer from "./LotTransfer";
 import ProducerProfile from "./ProducerProfile";
 
 const TABS = [
 	{ key: "profile", label: "Profil", icon: UserRoundIcon },
 	{ key: "lots", label: "Lots", icon: PackageSearchIcon },
 	{ key: "draft", label: "Créer un lot", icon: PackagePlusIcon },
+	{ key: "history", label: "Historique", icon: HistoryIcon },
+	{ key: "transfer", label: "Transférer", icon: SendIcon },
 ] as const satisfies readonly PillNavItem[];
 
 const Producer = () => {
@@ -48,6 +54,8 @@ const Producer = () => {
 						{tab === "profile" && <ProducerProfile />}
 						{tab === "lots" && <LotList />}
 						{tab === "draft" && <LotDraftForm />}
+						{tab === "history" && <LotLifecycle />}
+						{tab === "transfer" && <LotTransfer />}
 					</div>
 				</div>
 			</SessionGate>
