@@ -1,5 +1,10 @@
 import "server-only";
-import { encodeEventTopics, parseEventLogs, zeroAddress } from "viem";
+import {
+	decodeEventLog,
+	encodeEventTopics,
+	parseEventLogs,
+	zeroAddress,
+} from "viem";
 import {
 	etherscan,
 	type EtherscanLog,
@@ -34,6 +39,26 @@ export type VerifiedTxLot = {
 	events: TxEvent[];
 };
 
+export type LifecycleStep = {
+	kind: "step";
+	txHash: `0x${string}`;
+	recordedAt: string;
+	holder: `0x${string}`;
+	cid: string;
+	metadata: ItemMetadata | null;
+};
+
+export type LifecycleTransfer = {
+	kind: "transfer";
+	txHash: `0x${string}`;
+	recordedAt: string;
+	from: `0x${string}`;
+	to: `0x${string}`;
+	quantity: string;
+};
+
+export type LifecycleEntry = LifecycleStep | LifecycleTransfer;
+
 export type VerifiedLot = {
 	producerId: string;
 	account: `0x${string}`;
@@ -43,6 +68,7 @@ export type VerifiedLot = {
 	cid: string;
 	lot: ItemMetadata | null;
 	items: (ItemMetadata | null)[];
+	lifecycle: LifecycleEntry[];
 	verifiedTx: VerifiedTxLot | null;
 };
 
@@ -95,6 +121,130 @@ async function metadata(cid: string, index: number) {
 	} catch {
 		return null;
 	}
+}
+
+/** A step is pinned on its own, so its cid resolves to the json itself. */
+async function stepMetadata(cid: string) {
+	try {
+		const response = await fetch(ipfsUrl(cid), { next: { revalidate: 3600 } });
+		return response.ok ? ((await response.json()) as ItemMetadata) : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Lifecycle steps live in events only, never in storage: every LifecycleChanged
+ * on the lot's own token, oldest first. A read failure yields no history rather
+ * than failing the whole verification.
+ */
+async function verifySteps(idLot: bigint): Promise<LifecycleStep[]> {
+	try {
+		const [topic0, , topic2] = encodeEventTopics({
+			abi: registryABI,
+			eventName: "LifecycleChanged",
+			args: { idLot },
+		});
+
+		const logs = await etherscan<EtherscanLog[]>({
+			module: "logs",
+			action: "getLogs",
+			address: registryAddress,
+			fromBlock: deployedBlock,
+			toBlock: "latest",
+			topic0: String(topic0),
+			topic0_2_opr: "and",
+			topic2: String(topic2),
+			page: "1",
+			offset: "1000",
+		});
+
+		return await Promise.all(
+			logs.map(async (log) => {
+				const { args } = decodeEventLog({
+					abi: registryABI,
+					eventName: "LifecycleChanged",
+					topics: log.topics,
+					data: log.data,
+				});
+
+				return {
+					kind: "step" as const,
+					txHash: log.transactionHash,
+					recordedAt: new Date(Number(args.changedAt) * 1000).toISOString(),
+					holder: args.owner,
+					cid: args.cid,
+					metadata: await stepMetadata(args.cid),
+				};
+			}),
+		);
+	} catch (cause) {
+		// A lot without a single step is the norm, and Etherscan reports it as an error.
+		if (!String(cause).includes("No records found")) console.error(cause);
+		return [];
+	}
+}
+
+/**
+ * `TransferSingle` leaves the token id out of its topics, so the lot's own
+ * transfers can only be sorted out of the contract's transfers in memory.
+ * The mint itself is a `TransferBatch` and never shows up here.
+ */
+async function verifyTransfers(idItem: bigint): Promise<LifecycleTransfer[]> {
+	try {
+		const [topic0] = encodeEventTopics({
+			abi: registryABI,
+			eventName: "TransferSingle",
+		});
+
+		const logs = await etherscan<EtherscanLog[]>({
+			module: "logs",
+			action: "getLogs",
+			address: registryAddress,
+			fromBlock: deployedBlock,
+			toBlock: "latest",
+			topic0: String(topic0),
+			page: "1",
+			offset: "1000",
+		});
+
+		return logs.flatMap((log) => {
+			const { args } = decodeEventLog({
+				abi: registryABI,
+				eventName: "TransferSingle",
+				topics: log.topics,
+				data: log.data,
+			});
+			if (args.id !== idItem || args.from === zeroAddress) return [];
+
+			return [
+				{
+					kind: "transfer" as const,
+					txHash: log.transactionHash,
+					recordedAt: new Date(Number(log.timeStamp) * 1000).toISOString(),
+					from: args.from,
+					to: args.to,
+					quantity: args.value.toString(),
+				},
+			];
+		});
+	} catch (cause) {
+		// A lot that never changed hands is the norm, and Etherscan calls it an error.
+		if (!String(cause).includes("No records found")) console.error(cause);
+		return [];
+	}
+}
+
+/** One timeline: steps and changes of hands, oldest first. */
+async function verifyLifecycle(idLot: bigint): Promise<LifecycleEntry[]> {
+	const [steps, transfers] = await Promise.all([
+		verifySteps(idLot),
+		verifyTransfers(idLot << BigInt(128)),
+	]);
+
+	return [...steps, ...transfers].sort((a, b) =>
+		a.recordedAt.localeCompare(b.recordedAt),
+	);
 }
 
 const readable = (value: unknown): string =>
@@ -200,12 +350,13 @@ export async function verifyLot(
 		}),
 	]);
 
-	const [documents, verifiedTx] = await Promise.all([
+	const [documents, lifecycle, verifiedTx] = await Promise.all([
 		Promise.all(
 			Array.from({ length: Number(itemCount) }, (_, index) =>
 				metadata(cid, index),
 			),
 		),
+		verifyLifecycle(idLot),
 		verifyTxLot(idLot),
 	]);
 
@@ -220,6 +371,7 @@ export async function verifyLot(
 		cid,
 		lot,
 		items,
+		lifecycle,
 		verifiedTx,
 	};
 }

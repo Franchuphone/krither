@@ -1,11 +1,9 @@
 "use client";
 
-import { BlocksIcon, ExternalLinkIcon } from "lucide-react";
+import { ExternalLinkIcon, SearchIcon } from "lucide-react";
 import { Fragment } from "react";
-import CardHeading from "@/components/cards/CardHeading";
 import Detail from "@/components/nav/Detail";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
@@ -62,20 +60,16 @@ const TxDetailDialog = ({
 
 	return (
 		<Dialog>
-			<DialogTrigger className="group w-full cursor-pointer text-left">
-				<Card className="w-full gap-4 transition-colors group-hover:border-primary">
-					<CardHeading
-						icon={BlocksIcon}
-						stack="center"
-						title="Preuve blockchain"
-						description="Inscription sur la blockchain confirmée. Cliquez pour consulter le détail complet."
-						badge={
-							<Badge variant="success" className="sm:order-last sm:ml-auto">
-								Confirmée
-							</Badge>
-						}
+			<DialogTrigger
+				render={
+					<Button
+						variant="outline"
+						className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
 					/>
-				</Card>
+				}
+			>
+				<SearchIcon />
+				Voir les détails
 			</DialogTrigger>
 
 			<DialogContent className="flex max-h-[90vh] w-[min(90vw,48rem)] flex-col gap-4 overflow-y-auto sm:max-w-none">
