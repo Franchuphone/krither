@@ -5,21 +5,19 @@ import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
 	CalendarIcon,
-	FileTextIcon,
 	Loader2Icon,
-	type LucideIcon,
 	PackagePlusIcon,
-	PaperclipIcon,
 	PlusIcon,
 	XIcon,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import {
 	createLotDraft,
 	depositLotDocument,
 } from "@/app/actions/producer/lots";
-import { cn } from "@/lib/utils";
+import AddButton from "@/components/buttons/AddButton";
+import FilePicker from "@/components/buttons/FilePicker";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -131,102 +129,6 @@ const DateField = ({
 	);
 };
 
-const AddButton = ({
-	icon: Icon,
-	label,
-	hint,
-	compact,
-	disabled,
-	onClick,
-}: {
-	icon: LucideIcon;
-	label: string;
-	hint?: string;
-	compact?: boolean;
-	disabled?: boolean;
-	onClick: () => void;
-}) => (
-	<button
-		type="button"
-		disabled={disabled}
-		onClick={onClick}
-		className={cn(
-			"flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-border bg-muted/40 px-3 text-xs tracking-kicker text-muted-foreground uppercase transition-colors outline-none hover:border-primary hover:bg-primary/5 hover:text-primary focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50",
-			compact ? "py-1.5" : "py-4",
-		)}
-	>
-		<Icon className="size-3.5" />
-		{label}
-		{hint && <span className="opacity-60">{hint}</span>}
-	</button>
-);
-
-const FilePicker = ({
-	label,
-	files,
-	max,
-	onPick,
-	onDrop,
-	disabled,
-	compact,
-}: {
-	label: string;
-	files: File[];
-	max: number;
-	onPick: (picked: File[]) => void;
-	onDrop: (index: number) => void;
-	disabled?: boolean;
-	compact?: boolean;
-}) => {
-	const input = useRef<HTMLInputElement>(null);
-
-	return (
-		<div className="flex flex-col gap-1.5">
-			{files.map((file, index) => (
-				<div key={index} className="flex items-center gap-2 text-xs">
-					<FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
-					<span className="truncate text-foreground">
-						{file.name}
-					</span>
-					<Button
-						variant="ghost"
-						size="icon"
-						aria-label="Retirer le document"
-						className="ml-auto size-6 hover:bg-secondary hover:text-secondary-foreground"
-						disabled={disabled}
-						onClick={() => onDrop(index)}
-					>
-						<XIcon className="size-3.5" />
-					</Button>
-				</div>
-			))}
-
-			<input
-				ref={input}
-				type="file"
-				accept={DOCUMENT_ACCEPT}
-				multiple={max > 1}
-				className="hidden"
-				onChange={(event) => {
-					const picked = Array.from(event.target.files ?? []);
-					event.target.value = "";
-					// Sliced rather than refused: picking six keeps the first five.
-					if (picked.length > 0)
-						onPick(picked.slice(0, max - files.length));
-				}}
-			/>
-			<AddButton
-				icon={PaperclipIcon}
-				label={label}
-				hint={`${files.length}/${max}`}
-				compact={compact}
-				disabled={disabled || files.length >= max}
-				onClick={() => input.current?.click()}
-			/>
-		</div>
-	);
-};
-
 const LotDraftForm = () => {
 	const [lot, setLot] = useState<LotInput>(EMPTY_LOT);
 	const [lotFiles, setLotFiles] = useState<File[]>([]);
@@ -267,9 +169,7 @@ const LotDraftForm = () => {
 		onSuccess: (failed) => {
 			if (failed.length === 0) toast.success("Brouillon enregistré");
 			else
-				toast.warning(
-					`Brouillon enregistré, ${failed.join(", ")} non déposé`,
-				);
+				toast.warning(`Brouillon enregistré, ${failed.join(", ")} non déposé`);
 
 			setLot(EMPTY_LOT);
 			setLotFiles([]);
@@ -279,10 +179,7 @@ const LotDraftForm = () => {
 		onError: (error) => toast.error(error.message),
 	});
 
-	const setItem = (
-		index: number,
-		patch: Partial<LotInput["items"][number]>,
-	) =>
+	const setItem = (index: number, patch: Partial<LotInput["items"][number]>) =>
 		setLot((current) => ({
 			...current,
 			items: current.items.map((item, position) =>
@@ -292,9 +189,7 @@ const LotDraftForm = () => {
 
 	const setItemFile = (index: number, file: File | null) =>
 		setItemFiles((current) =>
-			current.map((entry, position) =>
-				position === index ? file : entry,
-			),
+			current.map((entry, position) => (position === index ? file : entry)),
 		);
 
 	return (
@@ -305,9 +200,10 @@ const LotDraftForm = () => {
 				description={
 					<>
 						Décrivez le lot et les articles le composant. <br />
-						Les formats acceptés pour les documents sont :{" "}
-						{DOCUMENT_ACCEPT}. <br />
-						Ceci est un brouillon et ne sera ancré sur la blockchain
+						Les formats acceptés pour les documents sont : {
+							DOCUMENT_ACCEPT
+						}. <br />
+						Ceci est un brouillon et ne sera enregistré sur la blockchain
 						qu&apos;au moment où vous le désirerez.
 					</>
 				}
@@ -319,9 +215,7 @@ const LotDraftForm = () => {
 						id="lot-name"
 						label="Nom"
 						value={lot.name}
-						onChange={(name) =>
-							setLot((current) => ({ ...current, name }))
-						}
+						onChange={(name) => setLot((current) => ({ ...current, name }))}
 						placeholder="Récolte de printemps"
 						error={touched ? errors.name : undefined}
 						disabled={save.isPending}
@@ -330,9 +224,7 @@ const LotDraftForm = () => {
 						id="lot-ref"
 						label="Numéro de lot"
 						value={lot.ref}
-						onChange={(ref) =>
-							setLot((current) => ({ ...current, ref }))
-						}
+						onChange={(ref) => setLot((current) => ({ ...current, ref }))}
 						placeholder="2026001"
 						error={touched ? errors.ref : undefined}
 						disabled={save.isPending}
@@ -341,9 +233,7 @@ const LotDraftForm = () => {
 						id="lot-zone"
 						label="Zone de récolte / fabrication"
 						value={lot.zone}
-						onChange={(zone) =>
-							setLot((current) => ({ ...current, zone }))
-						}
+						onChange={(zone) => setLot((current) => ({ ...current, zone }))}
 						placeholder="Baie de Saint-Brieuc"
 						error={touched ? errors.zone : undefined}
 						disabled={save.isPending}
@@ -358,21 +248,30 @@ const LotDraftForm = () => {
 						error={touched ? errors.producedAt : undefined}
 						disabled={save.isPending}
 					/>
-					<div className="sm:col-span-2">
-						<Field
-							id="lot-description"
-							label="Description"
-							value={lot.description}
-							onChange={(description) =>
-								setLot((current) => ({
-									...current,
-									description,
-								}))
-							}
-							placeholder="Optionnel"
-							disabled={save.isPending}
-						/>
-					</div>
+					<Field
+						id="lot-quantity"
+						label="Quantité produite"
+						value={lot.quantity}
+						onChange={(quantity) =>
+							setLot((current) => ({ ...current, quantity }))
+						}
+						placeholder="200"
+						error={touched ? errors.quantity : undefined}
+						disabled={save.isPending}
+					/>
+					<Field
+						id="lot-description"
+						label="Origine"
+						value={lot.description}
+						onChange={(description) =>
+							setLot((current) => ({
+								...current,
+								description,
+							}))
+						}
+						placeholder="France, Espagne..."
+						disabled={save.isPending}
+					/>
 
 					<div className="flex flex-col gap-3 sm:col-span-2">
 						<span className="text-xs tracking-kicker text-muted-foreground uppercase">
@@ -384,16 +283,11 @@ const LotDraftForm = () => {
 							files={lotFiles}
 							max={MAX_LOT_DOCUMENTS}
 							onPick={(picked) =>
-								setLotFiles((current) => [
-									...current,
-									...picked,
-								])
+								setLotFiles((current) => [...current, ...picked])
 							}
 							onDrop={(index) =>
 								setLotFiles((current) =>
-									current.filter(
-										(_, position) => position !== index,
-									),
+									current.filter((_, position) => position !== index),
 								)
 							}
 							disabled={save.isPending}
@@ -417,36 +311,24 @@ const LotDraftForm = () => {
 								value={item.name}
 								onChange={(name) => setItem(index, { name })}
 								placeholder="Miel de châtaignier"
-								error={
-									touched ?
-										errors.items?.[index]?.name
-									:	undefined
-								}
+								error={touched ? errors.items?.[index]?.name : undefined}
 								disabled={save.isPending}
 							/>
 							<Field
 								id={`item-${index}-description`}
-								label="Description"
+								label="Origine"
 								value={item.description}
-								onChange={(description) =>
-									setItem(index, { description })
-								}
-								placeholder="Optionnel"
+								onChange={(description) => setItem(index, { description })}
+								placeholder="France, Espagne..."
 								disabled={save.isPending}
 							/>
 							<Field
 								id={`item-${index}-quantity`}
 								label="Unités"
 								value={item.quantity}
-								onChange={(quantity) =>
-									setItem(index, { quantity })
-								}
+								onChange={(quantity) => setItem(index, { quantity })}
 								placeholder="120"
-								error={
-									touched ?
-										errors.items?.[index]?.quantity
-									:	undefined
-								}
+								error={touched ? errors.items?.[index]?.quantity : undefined}
 								disabled={save.isPending}
 							/>
 							<Button
@@ -454,9 +336,7 @@ const LotDraftForm = () => {
 								size="icon"
 								aria-label="Retirer l'article"
 								className="mt-6 hover:bg-secondary hover:text-secondary-foreground"
-								disabled={
-									lot.items.length === 1 || save.isPending
-								}
+								disabled={lot.items.length === 1 || save.isPending}
 								onClick={() => {
 									setLot((current) => ({
 										...current,
@@ -465,9 +345,7 @@ const LotDraftForm = () => {
 										),
 									}));
 									setItemFiles((current) =>
-										current.filter(
-											(_, position) => position !== index,
-										),
+										current.filter((_, position) => position !== index),
 									);
 								}}
 							>
@@ -479,14 +357,8 @@ const LotDraftForm = () => {
 									label="Document : 1 seul autorisé"
 									compact
 									max={1}
-									files={
-										itemFiles[index] ?
-											[itemFiles[index]]
-										:	[]
-									}
-									onPick={([file]) =>
-										setItemFile(index, file)
-									}
+									files={itemFiles[index] ? [itemFiles[index]] : []}
+									onPick={([file]) => setItemFile(index, file)}
 									onDrop={() => setItemFile(index, null)}
 									disabled={save.isPending}
 								/>
@@ -497,9 +369,7 @@ const LotDraftForm = () => {
 					<AddButton
 						icon={PlusIcon}
 						label="Ajouter un article"
-						disabled={
-							lot.items.length >= MAX_ITEMS || save.isPending
-						}
+						disabled={lot.items.length >= MAX_ITEMS || save.isPending}
 						onClick={() => {
 							setLot((current) => ({
 								...current,

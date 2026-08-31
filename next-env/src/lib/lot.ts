@@ -10,6 +10,7 @@ export type LotInput = {
 	ref: string;
 	zone: string;
 	producedAt: string;
+	quantity: string;
 	items: LotItemInput[];
 };
 
@@ -20,6 +21,7 @@ export type LotErrors = {
 	ref?: string;
 	zone?: string;
 	producedAt?: string;
+	quantity?: string;
 	items?: Record<number, LotItemErrors>;
 };
 
@@ -35,6 +37,7 @@ export const EMPTY_LOT: LotInput = {
 	ref: "",
 	zone: "",
 	producedAt: "",
+	quantity: "",
 	items: [EMPTY_ITEM],
 };
 
@@ -52,6 +55,7 @@ export function normalizeLot(input: LotInput): LotInput {
 		ref: input.ref.trim().replace(/\D/g, ""),
 		zone: input.zone.trim().replace(/\s+/g, " "),
 		producedAt: input.producedAt.trim(),
+		quantity: input.quantity.trim().replace(/\D/g, ""),
 		items: input.items.map((item) => ({
 			name: item.name.trim().replace(/\s+/g, " "),
 			description: item.description.trim(),
@@ -74,6 +78,10 @@ export function validateLot(input: LotInput): LotErrors {
 
 	if (Number.isNaN(Date.parse(input.producedAt)))
 		errors.producedAt = "Date invalide";
+
+	if (!/^\d+$/.test(input.quantity))
+		errors.quantity = "Uniquement des chiffres";
+	else if (input.quantity === "0") errors.quantity = "1 unité minimum";
 
 	const items: Record<number, LotItemErrors> = {};
 	input.items.forEach((item, index) => {
@@ -117,6 +125,7 @@ export type LotRecord = {
 	ref: bigint;
 	zone: string | null;
 	producedAt: Date | null;
+	quantity: number;
 };
 
 const lotProperties = (lot: LotRecord, producer: string) => ({
@@ -126,16 +135,15 @@ const lotProperties = (lot: LotRecord, producer: string) => ({
 	producedAt: lot.producedAt?.toISOString().slice(0, 10) ?? "",
 });
 
-/** Index 0 carries the lot, its quantity being the total units minted. */
+/** Index 0 carries the lot, whose quantity is declared, not summed from items. */
 export function buildLotMetadata(
 	lot: LotRecord & { documents: LotDocument[] },
 	producer: string,
-	units: number,
 ): ItemMetadata {
 	return {
 		name: lot.name,
 		description: lot.description ?? undefined,
-		properties: { ...lotProperties(lot, producer), quantity: units },
+		properties: { ...lotProperties(lot, producer), quantity: lot.quantity },
 		documents: documentsOf(lot.documents),
 	};
 }
@@ -160,5 +168,27 @@ export function buildItemMetadata(
 			quantity: item.quantity,
 		},
 		documents: documentsOf(item.document ? [item.document] : []),
+	};
+}
+
+export const MAX_STEP_DESCRIPTION = 500;
+
+/** Pinned on its own, outside the frozen mint directory. */
+export function buildStepMetadata(
+	lot: { ref: bigint },
+	producer: string,
+	title: string,
+	description: string,
+	documents: LotDocument[],
+): ItemMetadata {
+	return {
+		name: title,
+		description: description || undefined,
+		properties: {
+			ref: lot.ref.toString(),
+			producer,
+			recordedAt: new Date().toISOString(),
+		},
+		documents: documentsOf(documents),
 	};
 }

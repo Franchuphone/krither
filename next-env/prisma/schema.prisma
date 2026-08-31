@@ -86,6 +86,9 @@ model Lot {
     name        String
     description String?
 
+    /// Declared by the producer, unrelated to the units of its items.
+    quantity Int
+
     zone       String?
     producedAt DateTime?
 
